@@ -1,0 +1,17 @@
+.pagination {
+  display: flex; align-items: center; gap: 4px;
+  justify-content: center; margin-top: 20px;
+}
+.page-btn {
+  min-width: 32px; height: 32px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.82rem; color: var(--text-secondary);
+  cursor: pointer; transition: all var(--transition);
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 8px;
+}
+.page-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.page-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-dots { color: var(--text-muted); font-size: 0.8rem; padding: 0 4px; }

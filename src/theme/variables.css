@@ -1,0 +1,69 @@
+/* DefOex IntraTech — Design System */
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  /* Brand Colors */
+  --primary: #0d47a1;
+  --primary-light: #1565c0;
+  --primary-dark: #0a2e6e;
+  --primary-glow: rgba(13, 71, 161, 0.15);
+  --accent: #00b0ff;
+  --accent-light: #40c4ff;
+  --accent-dark: #0091ea;
+  --accent-glow: rgba(0, 176, 255, 0.15);
+
+  /* Status Colors */
+  --success: #00c853;
+  --success-bg: rgba(0, 200, 83, 0.1);
+  --warning: #ff8f00;
+  --warning-bg: rgba(255, 143, 0, 0.1);
+  --danger: #d50000;
+  --danger-bg: rgba(213, 0, 0, 0.1);
+  --info: #0288d1;
+  --info-bg: rgba(2, 136, 209, 0.1);
+
+  /* Neutral Palette */
+  --bg-page: #f0f4f8;
+  --bg-card: #ffffff;
+  --bg-sidebar: #0d1b3e;
+  --bg-sidebar-hover: #162550;
+  --bg-topbar: #ffffff;
+  --bg-input: #f7f9fc;
+  --bg-table-head: #e8f0fe;
+  --bg-table-alt: #f8faff;
+
+  /* Text */
+  --text-primary: #0d1b3e;
+  --text-secondary: #546e7a;
+  --text-muted: #90a4ae;
+  --text-white: #ffffff;
+  --text-accent: #0d47a1;
+  --text-sidebar: #b0bec5;
+  --text-sidebar-active: #ffffff;
+
+  /* Border */
+  --border: #dde3ef;
+  --border-focus: #0d47a1;
+  --border-radius: 10px;
+  --border-radius-sm: 6px;
+  --border-radius-lg: 16px;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 4px rgba(13, 27, 62, 0.08);
+  --shadow: 0 4px 16px rgba(13, 27, 62, 0.1);
+  --shadow-lg: 0 8px 32px rgba(13, 27, 62, 0.15);
+  --shadow-card: 0 2px 12px rgba(13, 27, 62, 0.07);
+
+  /* Sidebar */
+  --sidebar-width: 260px;
+  --sidebar-collapsed: 70px;
+  --topbar-height: 64px;
+
+  /* Typography */
+  --font-display: 'Exo 2', sans-serif;
+  --font-body: 'Inter', sans-serif;
+
+  /* Transitions */
+  --transition: 0.2s ease;
+  --transition-slow: 0.35s ease;
+}

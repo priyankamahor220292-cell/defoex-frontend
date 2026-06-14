@@ -1,0 +1,60 @@
+.new-plan-layout { display: grid; grid-template-columns: 1fr 280px; gap: 24px; }
+.new-plan-form {}
+
+.plan-tenure-select { display: flex; gap: 12px; margin: 16px 0; }
+.tenure-btn {
+  flex: 1; padding: 16px 12px; border-radius: var(--border-radius);
+  border: 2px solid var(--border); background: var(--bg-input);
+  cursor: pointer; transition: all var(--transition); text-align: center;
+}
+.tenure-btn:hover { border-color: var(--primary); background: var(--primary-glow); }
+.tenure-btn.active { border-color: var(--primary); background: var(--primary); color: #fff; }
+.tenure-key { font-family: var(--font-display); font-weight: 800; font-size: 1rem; }
+.tenure-label { font-size: 0.75rem; opacity: 0.8; margin-top: 2px; }
+.tenure-months { font-size: 0.7rem; opacity: 0.65; }
+
+.plan-preview {
+  background: var(--bg-sidebar);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  color: #fff;
+}
+.preview-title { font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; margin-bottom: 14px; color: var(--accent-light); }
+.preview-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-size: 0.82rem; }
+.preview-row span { color: rgba(255,255,255,0.5); }
+.preview-row strong { color: #fff; }
+.preview-row.big strong { font-size: 1.1rem; }
+.preview-row:last-child { border-bottom: none; }
+
+/* Print */
+.print-overlay {
+  position: fixed; inset: 0; background: rgba(13,27,62,0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.print-card {
+  background: #fff; width: 720px; max-width: 95vw; max-height: 90vh;
+  overflow-y: auto; border-radius: var(--border-radius);
+  box-shadow: var(--shadow-lg); padding: 32px;
+}
+.print-header { display: flex; align-items: center; gap: 16px; padding-bottom: 16px; border-bottom: 2px solid var(--primary); margin-bottom: 20px; }
+.print-logo { width: 44px; height: 44px; background: linear-gradient(135deg, var(--primary), var(--accent)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 1.4rem; font-weight: 800; color: #fff; }
+.print-company { font-family: var(--font-display); font-size: 1rem; font-weight: 800; color: var(--primary); }
+.print-cin { font-size: 0.7rem; color: var(--text-muted); }
+.print-irn { margin-left: auto; font-family: var(--font-display); font-size: 0.9rem; font-weight: 700; color: var(--primary); }
+.print-section { margin-bottom: 20px; }
+.print-section__title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 10px; }
+.print-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+.print-grid > div { display: flex; flex-direction: column; gap: 1px; padding: 4px 0; border-bottom: 1px dashed var(--border); font-size: 0.8rem; }
+.print-grid span { color: var(--text-muted); font-size: 0.7rem; }
+.print-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
+.print-quote { font-style: italic; color: var(--text-muted); font-size: 0.78rem; }
+.print-sign { font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); }
+
+/* MIS Chart */
+.mis-chart-table th, .mis-chart-table td { text-align: center; }
+.mis-note { text-align: center; margin-top: 16px; font-style: italic; color: var(--text-muted); font-size: 0.82rem; }
+
+@media (max-width: 800px) {
+  .new-plan-layout { grid-template-columns: 1fr; }
+}

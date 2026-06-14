@@ -1,0 +1,21 @@
+.stepper {
+  display: flex; align-items: center;
+  padding: 20px 0; margin-bottom: 24px;
+}
+.step { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.step__circle {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--bg-card);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.82rem; font-weight: 700;
+  color: var(--text-muted);
+  transition: all var(--transition);
+}
+.step.active .step__circle { border-color: var(--primary); background: var(--primary); color: #fff; box-shadow: 0 0 0 4px var(--primary-glow); }
+.step.done .step__circle { border-color: var(--success); background: var(--success); color: #fff; }
+.step__label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.step.active .step__label { color: var(--primary); }
+.step.done .step__label { color: var(--success); }
+.step__line { flex: 1; height: 2px; background: var(--border); margin: 0 8px; transition: background var(--transition); }
+.step__line.done { background: var(--success); }

@@ -1,0 +1,17 @@
+.notif-count { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; background:var(--danger); color:#fff; border-radius:50%; font-size:0.72rem; font-weight:700; margin-left:6px; }
+.notif-list { display:flex; flex-direction:column; gap:2px; }
+.notif-item {
+  display:flex; align-items:flex-start; gap:14px;
+  padding:14px 16px; border-radius:var(--border-radius-sm);
+  background:var(--bg-card); border:1px solid var(--border);
+  transition:background var(--transition); position:relative;
+}
+.notif-item.unread { background:var(--primary-glow); border-color:var(--primary); }
+.notif-item.type-warning { border-left:3px solid var(--warning); }
+.notif-item.type-error { border-left:3px solid var(--danger); }
+.notif-item.type-success { border-left:3px solid var(--success); }
+.notif-icon { font-size:1.2rem; margin-top:1px; }
+.notif-title { font-weight:700; font-size:0.85rem; color:var(--text-primary); }
+.notif-msg { font-size:0.8rem; color:var(--text-secondary); margin-top:2px; }
+.notif-time { font-size:0.72rem; color:var(--text-muted); margin-top:4px; }
+.notif-dot { position:absolute; right:14px; top:16px; width:8px; height:8px; background:var(--primary); border-radius:50%; }

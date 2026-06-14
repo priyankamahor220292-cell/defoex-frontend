@@ -1,0 +1,24 @@
+.panel {
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-table-head);
+}
+.panel__title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.panel__subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+.panel__actions { display: flex; align-items: center; gap: 8px; }
+.panel__body { padding: 20px; }

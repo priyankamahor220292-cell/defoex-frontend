@@ -1,0 +1,12 @@
+.settings-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; }
+.settings-card {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--border-radius-lg); padding:20px;
+  cursor:pointer; transition:all var(--transition);
+  position:relative;
+}
+.settings-card:hover { transform:translateY(-2px); box-shadow:var(--shadow); border-color:var(--primary); }
+.sc-icon { font-size:1.8rem; margin-bottom:10px; }
+.sc-title { font-family:var(--font-display); font-size:0.95rem; font-weight:700; margin-bottom:4px; }
+.sc-desc { font-size:0.78rem; color:var(--text-muted); }
+.sc-arrow { position:absolute; right:16px; top:50%; transform:translateY(-50%); font-size:1.2rem; color:var(--text-muted); }
