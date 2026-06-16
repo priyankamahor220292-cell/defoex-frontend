@@ -50,6 +50,7 @@ export default function InvestmentsPage() {
 
 /* ---- PLAN LIST ---- */
 function PlanList() {
+  const { user } = useAuth();
   const [data, setData] = useState({ items: [], total: 0, pages: 1, current_page: 1 });
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -137,7 +138,7 @@ function NewPlan() {
     if (form.monthly_amount && form.plan_tenure) {
       const months = MIS_TABLE[form.plan_tenure].months;
       const total = form.monthly_amount * months;
-      const maturity = calcMaturity(parseFloat(form.monthly_amount), form.plan_tenure, plan['months']);
+      const maturity = calcMaturity(parseFloat(form.monthly_amount), form.plan_tenure, months);
       const dueDate = new Date(form.investment_date || Date.now());
       dueDate.setMonth(dueDate.getMonth() + 1);
       setPreview({
@@ -173,7 +174,7 @@ function NewPlan() {
         <div className="new-plan-form">
           <div className="reg-form-row">
             <Field label="Investor ID" required>
-              <Input value={form.investor_id} onChange={e => set('investor_id', e.target.value)} placeholder="e.g. INV2026001234" />
+              <Input value={form.investor_id} onChange={e => set('investor_id', e.target.value)} placeholder="e.g. DFX-2026-000001" />
             </Field>
             <Field label="Investment Date">
               <Input type="date" value={form.investment_date} onChange={e => set('investment_date', e.target.value)} />
