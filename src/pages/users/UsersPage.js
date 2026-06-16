@@ -6,12 +6,36 @@ import Field, { Input, Select } from '../../components/Field/Field';
 import Loading from '../../components/Loading/Loading';
 import Alert from '../../components/Alert/Alert';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import './UsersPage.css';
 
 const ROLES = ['superadmin', 'branchmanager', 'advisor', 'member'];
 
 export default function UsersPage() {
+  const { user } = useAuth();
+
+  // Guard: only superadmin can access this page
+  if (user?.role !== 'superadmin') {
+    return (
+      <div className="page-enter">
+        <div className="page-header"><h1>Users</h1></div>
+        <div style={{
+          textAlign:'center', padding:'60px 20px',
+          background:'var(--bg-card)', borderRadius:'var(--border-radius-lg)',
+          border:'1px solid var(--border)'
+        }}>
+          <div style={{fontSize:'3rem', marginBottom:16}}>🔒</div>
+          <h2 style={{marginBottom:8, fontFamily:'var(--font-display)'}}>Access Restricted</h2>
+          <p style={{color:'var(--text-muted)', fontSize:'0.9rem'}}>
+            Only <strong>Super Admin</strong> can manage users.<br/>
+            Your role: <strong>{user?.role}</strong>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const [users, setUsers]       = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -21,8 +45,12 @@ export default function UsersPage() {
 
   const load = () => {
     setLoading(true);
-    Promise.all([api.get('/api/users/'), api.get('/api/branches/')])
-      .then(([u, b]) => { setUsers(u.data.data || []); setBranches(b.data.data || []); })
+    Promise.allSettled([api.get('/api/users/'), api.get('/api/branches/')])
+      .then(([u, b]) => {
+        if (u.status === 'fulfilled') setUsers(u.value.data.data || []);
+        if (b.status === 'fulfilled') setBranches(b.value.data.data || []);
+        if (u.status === 'rejected') toast.error('Could not load users');
+      })
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);

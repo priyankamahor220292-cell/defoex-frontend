@@ -1,3 +1,4 @@
+import SearchEngine from '../../../components/SearchEngine/SearchEngine';
 import React, { useEffect, useState } from 'react';
 import StatCard from '../../../components/StatCard/StatCard';
 import Panel from '../../../components/Panel/Panel';
