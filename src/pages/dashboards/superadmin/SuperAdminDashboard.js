@@ -46,6 +46,9 @@ export default function SuperAdminDashboard() {
         <div className="dashboard-date">{new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</div>
       </div>
 
+      {/* ── Universal Search ── */}
+      <SearchEngine />
+
       <div className="grid-4">
         <StatCard title="Total Investors" value={stats?.total_members || 0} icon="👥" color="primary" />
         <StatCard title="Active Investments" value={stats?.total_investments || 0} icon="📊" color="success" />

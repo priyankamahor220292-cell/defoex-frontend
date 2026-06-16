@@ -52,6 +52,9 @@ export default function BranchManagerDashboard() {
           <button className="btn btn-primary btn-sm" onClick={() => navigate('/members/new')}>+ New Investor</button>
           <button className="btn btn-accent btn-sm" onClick={() => navigate('/investments/new')}>+ New Plan</button>
         </div>
+
+      {/* ── Universal Search ── */}
+      <SearchEngine />
       </div>
 
       {/* Low balance alert */}
