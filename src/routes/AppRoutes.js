@@ -33,7 +33,8 @@ function DashboardRouter() {
   switch (user?.role) {
     case 'superadmin':    return <SuperAdminDashboard />;
     case 'branchmanager': return <BranchManagerDashboard />;
-    case 'advisor':       return <AdvisorDashboard />;
+    case 'advisor':
+    case 'adviser':       return <AdvisorDashboard />;
     default:              return <MemberDashboard />;
   }
 }

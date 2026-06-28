@@ -46,7 +46,8 @@ const NAV = {
 export default function Sidebar({ collapsed, onToggle }) {
   const { user, wallet, logout } = useAuth();
   const navigate = useNavigate();
-  const role  = user?.role || 'member';
+  const rawRole = user?.role || 'member';
+  const role  = rawRole === 'adviser' ? 'advisor' : rawRole;
   const items = NAV[role] || NAV.member;
 
   const handleLogout = async () => { await logout(); navigate('/login'); };

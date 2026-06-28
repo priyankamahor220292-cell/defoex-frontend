@@ -7,11 +7,8 @@
 
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
-import axios from 'axios';
+import { memberService } from '../../services/memberService';
 import './RegistrationForm.css';
-
-const API = process.env.REACT_APP_API_URL || '';
-const authHeader = () => ({ Authorization: `Bearer ${localStorage.getItem('access_token')}` });
 
 const SALUTATIONS  = ['Mr','Mrs','Ms','Dr','Prof'];
 const GENDERS      = ['Male','Female','Other'];
@@ -106,10 +103,10 @@ function Step1({form,set,errors}){
     if(!id){toast.error('Enter Promoter / Adviser ID');return;}
     setBusy(true);
     try{
-      const r=await axios.get(`${API}/registration/check-adviser?code=${id}`,{headers:authHeader()});
+      const r=await memberService.checkAdviser(id);
       if(r.data.success){
         const a=r.data.data;
-        set(p=>({...p,promoter_name:a.full_name||a.name||'',promoter_rank:a.rank_name||a.rank||''}));
+        set(p=>({...p,promoter_name:a.full_name||a.name||'',promoter_rank:a.rank_name||a.rank||'',promoter_adviser_id:a.adviser_code||id}));
         toast.success(`Verified: ${a.full_name||a.name}`);
       }
     }catch(e){toast.error(e.response?.data?.message||'Adviser not found');set(p=>({...p,promoter_name:'',promoter_rank:''}));}
@@ -384,7 +381,7 @@ export default function RegistrationForm({onSuccess,memberType='Investor'}){
         annual_income:       form.annual_income||null,
         family_income:       form.family_income||null,
       };
-      const r=await axios.post(`${API}/registration/register`,payload,{headers:authHeader()});
+      const r=await memberService.register(payload);
       if(r.data.success){toast.success(`Submitted! ID: ${r.data.data?.investor_id||''}`);if(onSuccess)onSuccess(r.data.data);setStep(1);setForm({...INIT,member_type:memberType});}
     }catch(e){toast.error(e.response?.data?.message||'Registration failed');}
     finally{setLoading(false);}

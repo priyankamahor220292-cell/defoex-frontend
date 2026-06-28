@@ -13,7 +13,9 @@ export default function MemberDashboard() {
 
   useEffect(() => {
     investmentService.list({}).then(r => {
-      setPlans(r.data.data?.items || []);
+      const payload = r.data?.data;
+      const rows = Array.isArray(payload) ? payload : (payload?.items || []);
+      setPlans(rows);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
