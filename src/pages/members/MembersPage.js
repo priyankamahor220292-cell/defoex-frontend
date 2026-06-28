@@ -11,7 +11,10 @@ import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const STEPS = ['Adviser Verify', 'Personal Info', 'Address & KYC', 'Nominee & Bank', 'Confirm'];
-const todayISO = () => new Date().toISOString().split('T')[0];
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 const INVESTOR_FEE = 10;
 
 export default function MembersPage() {

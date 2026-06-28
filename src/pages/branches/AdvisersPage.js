@@ -29,12 +29,34 @@ const RANK_OPTIONS = [
   { id: 19, label: '19. House 7' }, { id: 20, label: '20. House 8' },
 ];
 const rankLabel = id => RANK_OPTIONS.find(r => r.id === id)?.label || `${id}`;
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 const ADVISER_FEE = 500;
+
+/** Promoter rank N → new adviser may pick ranks 1 .. N-1 (flowchart conditions 01–15). */
+const computeMaxAllowedRank = (a) => {
+  const fromApi = a.max_allowed_rank_id ?? a.allowed_rank_id;
+  if (fromApi != null && Number(fromApi) >= 1) return Number(fromApi);
+  const promoterRank = Number(a.rank_id ?? a.promoter_rank_id ?? 0);
+  return promoterRank > 1 ? promoterRank - 1 : null;
+};
+
+const buildRankOptions = (maxRank, allowedRanks) => {
+  if (Array.isArray(allowedRanks) && allowedRanks.length) {
+    return allowedRanks.map(r => ({
+      id: Number(r.id),
+      label: r.label || rankLabel(Number(r.id)),
+    }));
+  }
+  if (!maxRank) return [];
+  return RANK_OPTIONS.filter(r => r.id >= 1 && r.id <= maxRank);
+};
 
 const blank = () => ({
   promoter_adviser_id:'', promoter_name:'', promoter_rank:'', promoter_rank_id:null,
-  max_allowed_rank_id:null,
+  max_allowed_rank_id:null, rank_options:[],
   registration_date: todayISO(),
   rank_id:null, rank:'', member_fees:String(ADVISER_FEE), payment_mode:'Cash',
   salutation:'', full_name:'', father_spouse_name:'',
@@ -114,9 +136,9 @@ function Stepper({ step }) {
 function Step1({form,set,errors}) {
   const [busy,setBusy] = useState(false);
   const today = todayISO();
-  const rankOptions = form.max_allowed_rank_id
-    ? RANK_OPTIONS.filter(r => r.id >= 1 && r.id <= form.max_allowed_rank_id)
-    : [];
+  const rankOptions = form.rank_options?.length
+    ? form.rank_options
+    : buildRankOptions(form.max_allowed_rank_id);
 
   const verify = async () => {
     const id = form.promoter_adviser_id.trim();
@@ -126,19 +148,30 @@ function Step1({form,set,errors}) {
       const r = await axios.post(`${API}/api/registration/check-adviser`,{adviser_code:id},{headers:auth()});
       if (r.data.success) {
         const a = r.data.data;
-        const maxRank = a.max_allowed_rank_id ?? a.allowed_rank_id;
-        if (a.allowed_rank_error || !maxRank) {
-          toast.error(a.allowed_rank_error || 'Cannot assign rank under this promoter');
-          set(p=>({...p,promoter_name:a.full_name||'',promoter_rank:a.rank_name||a.rank||'',promoter_rank_id:a.rank_id,max_allowed_rank_id:null,rank_id:null,rank:''}));
+        const maxRank = computeMaxAllowedRank(a);
+        const options = buildRankOptions(maxRank, a.allowed_ranks);
+        if (!maxRank || !options.length) {
+          toast.error(a.allowed_rank_error || 'Promoter rank too low to register a downline adviser');
+          set(p=>({
+            ...p,
+            promoter_name:a.full_name||a.name||'',
+            promoter_rank:a.rank_display||a.rank_name||a.rank||'',
+            promoter_rank_id:a.rank_id||a.promoter_rank_id,
+            max_allowed_rank_id:null,
+            rank_options:[],
+            rank_id:null,
+            rank:'',
+          }));
           return;
         }
         set(p=>({
           ...p,
           registration_date: today,
           promoter_name:a.full_name||a.name||'',
-          promoter_rank:a.rank_name||a.rank||'',
+          promoter_rank:a.rank_display||a.rank_name||a.rank||'',
           promoter_rank_id:a.rank_id||a.promoter_rank_id,
           max_allowed_rank_id:maxRank,
+          rank_options:options,
           rank_id:null,
           rank:'',
         }));
@@ -146,7 +179,7 @@ function Step1({form,set,errors}) {
       }
     } catch(e) {
       toast.error(e.response?.data?.message||'Adviser not found');
-      set(p=>({...p,promoter_name:'',promoter_rank:'',promoter_rank_id:null,max_allowed_rank_id:null,rank_id:null,rank:''}));
+      set(p=>({...p,promoter_name:'',promoter_rank:'',promoter_rank_id:null,max_allowed_rank_id:null,rank_options:[],rank_id:null,rank:''}));
     } finally { setBusy(false); }
   };
 
@@ -156,7 +189,7 @@ function Step1({form,set,errors}) {
       <F label="Promoter Adviser ID" req err={errors.promoter_adviser_id}>
         <div className="af-row-btn">
           <input className="af-input" value={form.promoter_adviser_id}
-            onChange={e=>set(p=>({...p,promoter_adviser_id:e.target.value,promoter_name:'',promoter_rank:'',promoter_rank_id:null,max_allowed_rank_id:null,rank_id:null,rank:''}))}
+            onChange={e=>set(p=>({...p,promoter_adviser_id:e.target.value,promoter_name:'',promoter_rank:'',promoter_rank_id:null,max_allowed_rank_id:null,rank_options:[],rank_id:null,rank:''}))}
             onKeyDown={e=>e.key==='Enter'&&verify()} placeholder="Enter Promoter Adviser ID"/>
           <button className="af-btn-verify" onClick={verify} disabled={busy}>{busy?'Verifying…':'Verify →'}</button>
         </div>
@@ -168,7 +201,7 @@ function Step1({form,set,errors}) {
             <div className="af-vname">{form.promoter_name}</div>
             <div className="af-vrank">
               Rank: {form.promoter_rank}
-              {form.max_allowed_rank_id ? ` (assign new adviser rank 1 to ${form.max_allowed_rank_id})` : ''}
+              {form.max_allowed_rank_id ? ` — assign new adviser ranks 1 to ${form.max_allowed_rank_id}` : ''}
             </div>
           </div>
         </div>
@@ -179,7 +212,7 @@ function Step1({form,set,errors}) {
         </F>
         <F label="New Adviser Rank" req err={errors.rank}
           hint={form.max_allowed_rank_id ? `Select rank 1 to ${form.max_allowed_rank_id}` : 'Verify promoter first'}>
-          <select className="af-input af-sel" value={form.rank_id||''} disabled={!form.max_allowed_rank_id}
+          <select className="af-input af-sel" value={form.rank_id||''} disabled={!form.max_allowed_rank_id || !rankOptions.length}
             onChange={e=>{const id=parseInt(e.target.value,10);set(p=>({...p,rank_id:id,rank:rankLabel(id),registration_date:today}));}}>
             <option value="">{form.max_allowed_rank_id ? 'Select rank' : 'Verify promoter first'}</option>
             {rankOptions.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
