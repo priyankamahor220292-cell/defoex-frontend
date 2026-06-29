@@ -43,7 +43,12 @@ export default function ProfilePage() {
 
   return (
     <div className="page-enter">
-      <div className="page-header"><h1>My Profile</h1></div>
+      <div className="page-header">
+        <div>
+          <h1>My Profile</h1>
+          <p className="text-muted">Your account details and login settings</p>
+        </div>
+      </div>
 
       <div className={`profile-layout${isAdmin ? '' : ' profile-layout-single'}`}>
         <Panel title="Account Information">
@@ -51,7 +56,10 @@ export default function ProfilePage() {
             <div className="profile-avatar">{user?.full_name?.[0]?.toUpperCase() || 'U'}</div>
             <div>
               <div className="profile-name">{user?.full_name}</div>
-              <span style={{background:roleBg[user?.role],color:roleColor[user?.role],padding:'3px 10px',borderRadius:10,fontSize:'0.72rem',fontWeight:700}}>
+              <span
+                className="role-pill"
+                style={{ background: roleBg[user?.role], color: roleColor[user?.role] }}
+              >
                 {user?.role}
               </span>
             </div>
@@ -67,7 +75,7 @@ export default function ProfilePage() {
 
         {isAdmin ? (
           <Panel title="Change Password">
-            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div className="profile-pw-form">
               {pwError && <Alert type="error" onClose={() => setPwError('')}>{pwError}</Alert>}
               <Field label="Current Password" required>
                 <Input type="password" value={pwForm.current_password}

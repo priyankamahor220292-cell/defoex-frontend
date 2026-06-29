@@ -1,5 +1,16 @@
 .notif-count { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; background:var(--danger); color:#fff; border-radius:50%; font-size:0.72rem; font-weight:700; margin-left:6px; }
-.notif-list { display:flex; flex-direction:column; gap:2px; }
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notif-list .empty-state {
+  margin: 8px 0;
+  border: 1px dashed var(--border);
+  border-radius: var(--border-radius-md);
+  background: var(--bg-input);
+}
 .notif-item {
   display:flex; align-items:flex-start; gap:14px;
   padding:14px 16px; border-radius:var(--border-radius-sm);

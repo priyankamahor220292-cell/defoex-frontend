@@ -832,10 +832,12 @@ export default function InvestmentPlans() {
   const [tab, setTab] = useState('mis');
 
   return (
-    <div className="inv-page">
-      <div className="page-head">
-        <h1 className="page-title">Investment Plans</h1>
-        <p className="page-sub">MIS / SIS plan management</p>
+    <div className="page-enter">
+      <div className="page-header">
+        <div>
+          <h1>Investment Plans</h1>
+          <p className="text-muted">MIS / SIS plan management</p>
+        </div>
       </div>
 
       <div className="tab-bar">

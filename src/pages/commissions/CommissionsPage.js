@@ -165,7 +165,7 @@ export default function CommissionsPage() {
           <h1>Benefits</h1>
           <p className="text-muted">{isBM ? 'Your branch adviser benefits' : 'All adviser benefits across branches'}</p>
         </div>
-        <div className="comm-tabs">
+        <div className="page-actions">
           <button type="button" className={`btn ${view === 'list' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setView('list')}>Records</button>
           <button type="button" className={`btn ${view === 'rates' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setView('rates')}>Rate Chart</button>
           <button type="button" className={`btn ${view === 'calc' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setView('calc')}>Calculator</button>

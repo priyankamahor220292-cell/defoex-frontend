@@ -3,6 +3,15 @@ import { authService } from '../services/authService';
 
 const AuthContext = createContext(null);
 
+const normalizeUser = (user) => {
+  if (!user?.full_name) return user;
+  const name = user.full_name.trim();
+  if (name.toLowerCase().startsWith('hello ')) {
+    return { ...user, full_name: `Hello ${name.slice(6).trimStart()}` };
+  }
+  return user;
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [wallet, setWallet] = useState(null);
@@ -13,7 +22,7 @@ export function AuthProvider({ children }) {
     if (!token) { setLoading(false); return; }
     try {
       const { data } = await authService.me();
-      setUser(data.data);
+      setUser(normalizeUser(data.data));
     } catch {
       localStorage.removeItem('access_token');
     } finally {
@@ -27,9 +36,9 @@ export function AuthProvider({ children }) {
     const { data } = await authService.login(credentials);
     localStorage.setItem('access_token', data.data.access_token);
     localStorage.setItem('refresh_token', data.data.refresh_token);
-    setUser(data.data.user);
+    setUser(normalizeUser(data.data.user));
     setWallet(data.data.wallet);
-    return data.data.user;
+    return normalizeUser(data.data.user);
   };
 
   const logout = async () => {

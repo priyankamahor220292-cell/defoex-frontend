@@ -13,10 +13,13 @@ export default function ReportsPage() {
   return (
     <div className="page-enter">
       <div className="page-header">
-        <h1>Reports</h1>
+        <div>
+          <h1>Reports</h1>
+          <p className="text-muted">Business summary and investor listings</p>
+        </div>
         <div className="tabs">
-          <button className={`tab-btn ${tab===0?'active':''}`} onClick={() => setTab(0)}>Business Summary</button>
-          <button className={`tab-btn ${tab===1?'active':''}`} onClick={() => setTab(1)}>List Investors</button>
+          <button type="button" className={`tab-btn ${tab===0?'active':''}`} onClick={() => setTab(0)}>Business Summary</button>
+          <button type="button" className={`tab-btn ${tab===1?'active':''}`} onClick={() => setTab(1)}>List Investors</button>
         </div>
       </div>
       {tab === 0 ? <BusinessSummary /> : <ListInvestors />}

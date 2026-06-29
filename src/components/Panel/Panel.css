@@ -1,6 +1,6 @@
 .panel {
   background: var(--bg-card);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-lg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-card);
   overflow: hidden;

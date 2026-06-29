@@ -24,11 +24,25 @@ export default function NotificationsPage() {
   return (
     <div className="page-enter">
       <div className="page-header">
-        <h1>Notifications {data.unread_count > 0 && <span className="notif-count">{data.unread_count}</span>}</h1>
-        {data.unread_count > 0 && <button className="btn btn-outline btn-sm" onClick={markRead}>Mark All Read</button>}
+        <div>
+          <h1>
+            Notifications
+            {data.unread_count > 0 && <span className="notif-count">{data.unread_count}</span>}
+          </h1>
+          <p className="text-muted">Stay updated on approvals, plans, and account activity</p>
+        </div>
+        {data.unread_count > 0 && (
+          <div className="page-actions">
+            <button type="button" className="btn btn-outline btn-sm" onClick={markRead}>Mark All Read</button>
+          </div>
+        )}
       </div>
       <Panel title="All Notifications">
-        {loading ? <div style={{padding:'32px',textAlign:'center',color:'var(--text-muted)'}}>Loading...</div> : (
+        {loading ? (
+          <div className="empty-state">
+            <div className="empty-state-sub">Loading notifications…</div>
+          </div>
+        ) : (
           <div className="notif-list">
             {data.items?.map(n => (
               <div key={n.id} className={`notif-item ${!n.is_read ? 'unread' : ''} type-${n.notification_type?.toLowerCase()}`}>
@@ -41,7 +55,13 @@ export default function NotificationsPage() {
                 {!n.is_read && <div className="notif-dot" />}
               </div>
             ))}
-            {!data.items?.length && <div className="text-center text-muted" style={{padding:'32px'}}>No notifications</div>}
+            {!data.items?.length && (
+              <div className="empty-state">
+                <div className="empty-state-icon">🔔</div>
+                <div className="empty-state-title">No notifications</div>
+                <div className="empty-state-sub">You're all caught up — new alerts will appear here</div>
+              </div>
+            )}
           </div>
         )}
       </Panel>

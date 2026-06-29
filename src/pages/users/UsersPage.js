@@ -116,8 +116,18 @@ export default function UsersPage() {
   const roleColor = { superadmin:'#A32D2D', branchmanager:'#185FA5', advisor:'#854F0B', member:'#3B6D11' };
   const roleBg    = { superadmin:'#FCEBEB', branchmanager:'#E6F1FB', advisor:'#FAEEDA', member:'#EAF3DE' };
 
+  const userInitials = (name = '') =>
+    name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join('') || '?';
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let pw = '';
+    for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+    setResetPw(pw);
+  };
+
   return (
-    <div className="page-enter">
+    <div className="users-page page-enter">
       <div className="page-header">
         <div><h1>Users</h1><p className="text-muted">Manage portal access for all roles</p></div>
         <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ Create User</button>
@@ -138,7 +148,10 @@ export default function UsersPage() {
                   <td>{u.email}</td>
                   <td>{u.mobile || '—'}</td>
                   <td>
-                    <span style={{background:roleBg[u.role],color:roleColor[u.role],padding:'2px 8px',borderRadius:10,fontSize:'0.72rem',fontWeight:700}}>
+                    <span
+                      className="role-pill"
+                      style={{ background: roleBg[u.role], color: roleColor[u.role] }}
+                    >
                       {u.role}
                     </span>
                   </td>
@@ -196,25 +209,55 @@ export default function UsersPage() {
 
       <Modal open={!!resetUser} onClose={() => setResetUser(null)} title="Reset User Password" size="sm">
         {resetUser && (
-          <div>
-            <p style={{ fontSize:'0.9rem', marginBottom:16, lineHeight:1.6 }}>
-              Reset password for <strong>{resetUser.full_name}</strong> ({resetUser.username})
-            </p>
-            <Field label="New Password (optional)">
-              <Input
-                type="text"
-                value={resetPw}
-                onChange={e => setResetPw(e.target.value)}
-                placeholder="Leave blank to auto-generate"
-              />
-            </Field>
-            <Alert type="warning" className="mt-2">
-              The new password will be shown once after reset. Share it securely with the user.
-            </Alert>
-            <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:16 }}>
-              <button className="btn btn-outline" onClick={() => setResetUser(null)} disabled={resetting}>Cancel</button>
-              <button className="btn btn-primary" onClick={resetPassword} disabled={resetting}>
-                {resetting ? 'Resetting...' : 'Reset Password'}
+          <div className="reset-pw-modal">
+            <div className="reset-pw-user">
+              <div className="reset-pw-avatar">{userInitials(resetUser.full_name)}</div>
+              <div className="reset-pw-user-info">
+                <div className="reset-pw-name">{resetUser.full_name}</div>
+                <div className="reset-pw-meta">
+                  <code>@{resetUser.username}</code>
+                  {resetUser.email && <span>{resetUser.email}</span>}
+                </div>
+                <span
+                  className="reset-pw-role"
+                  style={{ background: roleBg[resetUser.role], color: roleColor[resetUser.role] }}
+                >
+                  {resetUser.role}
+                </span>
+              </div>
+            </div>
+
+            <div className="reset-pw-section">
+              <label className="reset-pw-label">New Password</label>
+              <div className="reset-pw-input-row">
+                <Input
+                  type="text"
+                  value={resetPw}
+                  onChange={e => setResetPw(e.target.value)}
+                  placeholder="Leave blank to auto-generate"
+                  className="reset-pw-input"
+                />
+                <button type="button" className="btn btn-outline btn-sm reset-pw-gen" onClick={generatePassword}>
+                  Generate
+                </button>
+              </div>
+              <p className="reset-pw-hint">Optional — leave empty for a secure auto-generated password</p>
+            </div>
+
+            <div className="reset-pw-notice">
+              <span className="reset-pw-notice-icon">🔐</span>
+              <div>
+                <strong>One-time display</strong>
+                <p>The new password is shown once after reset. Copy and share it securely with the user.</p>
+              </div>
+            </div>
+
+            <div className="reset-pw-actions">
+              <button type="button" className="btn btn-outline" onClick={() => setResetUser(null)} disabled={resetting}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-primary" onClick={resetPassword} disabled={resetting}>
+                {resetting ? 'Resetting…' : 'Reset Password'}
               </button>
             </div>
           </div>
@@ -223,20 +266,39 @@ export default function UsersPage() {
 
       <Modal open={!!credModal} onClose={() => setCredModal(null)} title={credModal?.title || 'Login Credentials'} size="sm">
         {credModal && (
-          <div>
-            <p style={{ fontSize:'0.9rem', marginBottom:12 }}>
-              <strong>{credModal.full_name}</strong> ({credModal.role})
-            </p>
-            <div className="cred-box">
-              <div><span>Username</span><strong>{credModal.username}</strong></div>
-              <div><span>Password</span><strong style={{ color:'var(--primary)' }}>{credModal.password}</strong></div>
+          <div className="cred-modal">
+            <div className="cred-modal-user">
+              <div className="reset-pw-avatar">{userInitials(credModal.full_name)}</div>
+              <div>
+                <div className="reset-pw-name">{credModal.full_name}</div>
+                <span
+                  className="reset-pw-role"
+                  style={{ background: roleBg[credModal.role], color: roleColor[credModal.role] }}
+                >
+                  {credModal.role}
+                </span>
+              </div>
             </div>
-            <Alert type="info" className="mt-2">
-              Passwords cannot be viewed again after closing this dialog. Copy and share securely.
-            </Alert>
-            <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:16 }}>
-              <button className="btn btn-outline" onClick={copyCreds}>Copy</button>
-              <button className="btn btn-primary" onClick={() => setCredModal(null)}>Done</button>
+            <div className="cred-box">
+              <div className="cred-row">
+                <span>Username</span>
+                <strong>{credModal.username}</strong>
+              </div>
+              <div className="cred-row cred-row--password">
+                <span>Password</span>
+                <strong>{credModal.password}</strong>
+              </div>
+            </div>
+            <div className="reset-pw-notice">
+              <span className="reset-pw-notice-icon">⚠️</span>
+              <div>
+                <strong>Save now</strong>
+                <p>Passwords cannot be viewed again after closing this dialog.</p>
+              </div>
+            </div>
+            <div className="reset-pw-actions">
+              <button type="button" className="btn btn-outline" onClick={copyCreds}>Copy Credentials</button>
+              <button type="button" className="btn btn-primary" onClick={() => setCredModal(null)}>Done</button>
             </div>
           </div>
         )}

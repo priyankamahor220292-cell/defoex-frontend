@@ -1,26 +1,236 @@
+.users-page {
+  display: flex;
+  flex-direction: column;
+}
+
 .user-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.cred-box {
+/* Reset password modal */
+.reset-pw-modal,
+.cred-modal {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  border-radius: var(--border-radius);
-  background: var(--bg-subtle, #f8fafc);
+  gap: 18px;
+}
+
+.reset-pw-user,
+.cred-modal-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background: linear-gradient(135deg, var(--primary-glow) 0%, var(--bg-input) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-lg);
+}
+
+.reset-pw-avatar {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(24, 95, 165, 0.25);
+}
+
+.reset-pw-user-info {
+  min-width: 0;
+}
+
+.reset-pw-name {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.reset-pw-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.reset-pw-meta code {
+  font-size: 0.76rem;
+  background: var(--bg-card);
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: var(--primary);
   border: 1px solid var(--border);
 }
 
-.cred-box div {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 0.9rem;
+.reset-pw-role {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.cred-box span {
+.reset-pw-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reset-pw-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.reset-pw-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.reset-pw-input-row .reset-pw-input,
+.reset-pw-input-row .form-input {
+  flex: 1;
+  min-width: 0;
+  font-family: monospace;
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+}
+
+.reset-pw-gen {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.reset-pw-hint {
+  margin: 0;
+  font-size: 0.75rem;
   color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.reset-pw-notice {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  background: var(--warning-bg);
+  border: 1px solid rgba(255, 152, 0, 0.25);
+  border-radius: var(--border-radius-md);
+}
+
+.reset-pw-notice-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.reset-pw-notice strong {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.reset-pw-notice p {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.reset-pw-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+  padding-top: 16px;
+}
+
+/* Credentials modal */
+.cred-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-radius: var(--border-radius-md);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.cred-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  font-size: 0.88rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.cred-row:last-child {
+  border-bottom: none;
+}
+
+.cred-row span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cred-row strong {
+  font-family: monospace;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  word-break: break-all;
+  text-align: right;
+}
+
+.cred-row--password {
+  background: var(--primary-glow);
+}
+
+.cred-row--password strong {
+  color: var(--primary);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+@media (max-width: 480px) {
+  .reset-pw-input-row {
+    flex-direction: column;
+  }
+
+  .reset-pw-gen {
+    width: 100%;
+  }
+
+  .reset-pw-actions {
+    flex-direction: column-reverse;
+  }
+
+  .reset-pw-actions .btn {
+    width: 100%;
+  }
 }

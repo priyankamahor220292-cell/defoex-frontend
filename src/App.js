@@ -7,6 +7,7 @@ import AppRoutes from './routes/AppRoutes';
 // Theme + Global
 import './theme/variables.css';
 import './theme/global.css';
+import './theme/pages.css';
 import './theme/responsive.css';
 import './components/Field/Field.css';
 

@@ -18,7 +18,9 @@ export default function SettingsPage() {
   ];
   return (
     <div className="page-enter">
-      <div className="page-header"><h1>Settings</h1></div>
+      <div className="page-header">
+        <div><h1>Settings</h1><p className="text-muted">Manage your account and portal preferences</p></div>
+      </div>
       <div className="settings-cards">
         {cards.map(s => (
           <div key={s.path} className="settings-card" onClick={() => navigate(s.path)}>

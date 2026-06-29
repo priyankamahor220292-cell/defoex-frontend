@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import Panel from '../../components/Panel/Panel';
 import Field, { Input, Select } from '../../components/Field/Field';
 import Loading from '../../components/Loading/Loading';
@@ -9,6 +10,7 @@ import api from '../../services/api';
 import { memberService } from '../../services/memberService';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+import './MembersPage.css';
 
 const STEPS = ['Adviser Verify', 'Personal Info', 'Address & KYC', 'Nominee & Bank', 'Confirm'];
 const todayISO = () => {
@@ -19,9 +21,14 @@ const INVESTOR_FEE = 10;
 
 export default function MembersPage() {
   const { user } = useAuth();
+  const location = useLocation();
   const isAdviser = user?.role === 'advisor' || user?.role === 'adviser';
   const [view, setView] = useState('list');
   const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (location.pathname.endsWith('/new')) setView('create');
+  }, [location.pathname]);
 
   const refreshPending = useCallback(() => {
     if (isAdviser) return;
@@ -43,7 +50,7 @@ export default function MembersPage() {
               : 'Manage investor registrations and approvals'}
           </p>
         </div>
-        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        <div className="page-actions">
           <button className={`btn ${view==='list'?'btn-primary':'btn-outline'}`} onClick={()=>setView('list')}>
             {isAdviser ? 'My Investors' : 'List Investors'}
           </button>
@@ -52,7 +59,7 @@ export default function MembersPage() {
               <button className={`btn ${view==='create'?'btn-primary':'btn-outline'}`} onClick={()=>setView('create')}>+ New Registration</button>
               <button className={`btn ${view==='approved'?'btn-primary':'btn-outline'}`} onClick={()=>setView('approved')}>
                 Approved Investor
-                {pendingCount > 0 && <span style={{marginLeft:6,background:'#ff5252',color:'#fff',borderRadius:10,padding:'1px 7px',fontSize:'0.7rem',fontWeight:700}}>{pendingCount}</span>}
+                {pendingCount > 0 && <span className="badge-count">{pendingCount}</span>}
               </button>
             </>
           )}

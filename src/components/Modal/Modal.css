@@ -1,9 +1,12 @@
 .modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(13,27,62,0.55);
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 27, 62, 0.55);
   backdrop-filter: blur(4px);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 500;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  z-index: 5000;
   animation: fadeIn 0.15s ease;
 }
 @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -11,8 +14,8 @@
   background: var(--bg-card);
   border-radius: var(--border-radius-lg);
   box-shadow: var(--shadow-lg);
-  width: 90%;
-  max-height: 90vh;
+  width: min(100%, 100%);
+  max-height: calc(100vh - 48px);
   overflow-y: auto;
   animation: slideUp 0.2s ease;
 }

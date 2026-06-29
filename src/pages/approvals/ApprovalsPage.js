@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import Panel from '../../components/Panel/Panel';
 import Badge from '../../components/Badge/Badge';
@@ -8,14 +9,20 @@ import Alert from '../../components/Alert/Alert';
 import { memberService } from '../../services/memberService';
 import { investmentService } from '../../services/investmentService';
 import InvestorCredentialsModal, { showInvestorCredentialToasts } from '../../components/InvestorCredentialsModal/InvestorCredentialsModal';
+import './ApprovalsPage.css';
 
 export default function ApprovalsPage() {
-  const [tab, setTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'plans' ? 1 : 0;
+  const [tab, setTab] = useState(initialTab);
   const [regCount,  setRegCount]  = useState(0);
   const [planCount, setPlanCount] = useState(0);
 
   const refreshCounts = useCallback(() => {
-    memberService.pending(1).then(r => setRegCount(r.data.data?.total || 0)).catch(() => {});
+    memberService.pending(1).then(r => {
+      const d = r.data.data || {};
+      setRegCount(Number(d.total ?? d.items?.length) || 0);
+    }).catch(() => {});
     investmentService.list({ status: 'pending', per_page: 1 })
       .then(r => setPlanCount(Number(r.data.total ?? (r.data.data || []).length) || 0))
       .catch(() => {});
@@ -23,8 +30,19 @@ export default function ApprovalsPage() {
 
   useEffect(() => { refreshCounts(); }, [refreshCounts]);
 
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t === 'plans') setTab(1);
+    else if (t === 'registrations') setTab(0);
+  }, [searchParams]);
+
+  const switchTab = (index) => {
+    setTab(index);
+    setSearchParams({ tab: index === 0 ? 'registrations' : 'plans' }, { replace: true });
+  };
+
   return (
-    <div className="page-enter">
+    <div className="approvals-page page-enter">
       <div className="page-header">
         <div>
           <h1>Approvals Queue</h1>
@@ -32,26 +50,42 @@ export default function ApprovalsPage() {
         </div>
       </div>
 
-      {/* Summary cards */}
       <div className="approval-summary">
-        <div className={`as-card ${tab===0?'active':''}`} onClick={() => setTab(0)}>
-          <div className="as-count">{regCount}</div>
-          <div className="as-label">Pending Registrations</div>
-          <div className="as-sub">Investor sign-ups waiting for approval</div>
-        </div>
-        <div className={`as-card ${tab===1?'active':''}`} onClick={() => setTab(1)}>
-          <div className="as-count accent">{planCount}</div>
-          <div className="as-label">Pending Investment Plans</div>
-          <div className="as-sub">MIS plans waiting for approval</div>
-        </div>
+        <button
+          type="button"
+          className={`as-card${tab === 0 ? ' active' : ''}${regCount > 0 ? ' has-pending' : ''}`}
+          onClick={() => switchTab(0)}
+        >
+          <div className="as-card-main">
+            <div className="as-icon">👤</div>
+            <div>
+              <div className="as-label">Pending Registrations</div>
+              <div className="as-sub">Investor sign-ups waiting for approval</div>
+            </div>
+          </div>
+          <div className={`as-count${regCount > 0 ? ' warning' : ''}`}>{regCount}</div>
+        </button>
+        <button
+          type="button"
+          className={`as-card${tab === 1 ? ' active' : ''}${planCount > 0 ? ' has-pending' : ''}`}
+          onClick={() => switchTab(1)}
+        >
+          <div className="as-card-main">
+            <div className="as-icon accent">📈</div>
+            <div>
+              <div className="as-label">Pending Investment Plans</div>
+              <div className="as-sub">MIS / SIS plans waiting for approval</div>
+            </div>
+          </div>
+          <div className={`as-count accent${planCount > 0 ? ' warning' : ''}`}>{planCount}</div>
+        </button>
       </div>
 
-      {/* Tab buttons */}
-      <div className="tabs" style={{marginBottom:16}}>
-        <button className={`tab-btn ${tab===0?'active':''}`} onClick={() => setTab(0)}>
+      <div className="approval-tabs">
+        <button type="button" className={`tab-btn${tab === 0 ? ' active' : ''}`} onClick={() => switchTab(0)}>
           Registrations {regCount > 0 && <span className="tab-count">{regCount}</span>}
         </button>
-        <button className={`tab-btn ${tab===1?'active':''}`} onClick={() => setTab(1)}>
+        <button type="button" className={`tab-btn${tab === 1 ? ' active' : ''}`} onClick={() => switchTab(1)}>
           Investment Plans {planCount > 0 && <span className="tab-count accent">{planCount}</span>}
         </button>
       </div>

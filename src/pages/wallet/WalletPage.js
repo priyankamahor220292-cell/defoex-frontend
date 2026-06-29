@@ -307,7 +307,12 @@ function BMWalletView() {
 
   return (
     <div className="page-enter">
-      <div className="page-header"><h1>Branch Wallet</h1></div>
+      <div className="page-header">
+        <div>
+          <h1>Branch Wallet</h1>
+          <p className="text-muted">Current balance, cash wallet, and transaction history</p>
+        </div>
+      </div>
       {data && (
         <div className="bm-wallet-cards">
           <div className={`bm-wallet-card dark ${data.is_low_balance ? 'low' : ''}`}>
