@@ -11,4 +11,5 @@
 .profile-field-row { display:flex; justify-content:space-between; padding:8px 0; font-size:0.83rem; border-bottom:1px solid var(--border); }
 .profile-field-row:last-child { border-bottom:none; }
 .profile-field-row span { color:var(--text-muted); }
+.profile-layout-single { grid-template-columns: 1fr; max-width: 560px; }
 @media(max-width:700px){ .profile-layout{ grid-template-columns:1fr; } }

@@ -6,6 +6,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import BranchReceipt from './BranchReceipt';
 import './InvestmentsPage.css';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -24,6 +26,15 @@ const validateTxnId = (val) => {
   if (!/^[A-Za-z0-9]{1,35}$/.test(val.trim())) return 'Alphanumeric only, max 35 characters';
   return null;
 };
+
+const installmentStatus = (inv) =>
+  inv.installment_status ||
+  `${inv.installments_paid || 0} of ${inv.total_installments || 0}`;
+
+const triAmount = (inv) =>
+  inv.total_received_investment ??
+  inv.tri ??
+  (inv.installments_paid || 0) * (inv.monthly_amount || 0);
 
 // MIS plan configs
 const MIS_PLANS = {
@@ -354,7 +365,7 @@ function NewMISPlan() {
           <div className="preview-row"><span>Monthly</span><strong>{fmtINR(p.monthly)}</strong></div>
           <div className="preview-row"><span>Installments</span><strong>{p.months}</strong></div>
           <div className="preview-row"><span>Total Investment</span><strong>{fmtINR(p.totalInv)}</strong></div>
-          <div className="preview-row maturity"><span>Maturity Amount</span><strong>{fmtINR(p.maturity)}</strong></div>
+          <div className="preview-row maturity"><span>Return of Investment</span><strong>{fmtINR(p.maturity)}</strong></div>
           {paymentMode === 'UPI' && txnId && (
             <div className="preview-row"><span>Txn ID</span><strong className="mono">{txnId}</strong></div>
           )}
@@ -478,7 +489,7 @@ function NewSISPlan() {
           <div className="preview-row"><span>Plan</span><strong>SIS 7.5 Year</strong></div>
           <div className="preview-row"><span>Tenure</span><strong>7.5 Years · 90 months</strong></div>
           <div className="preview-row"><span>Investment</span><strong>{fmtINR(Number(amount))}</strong></div>
-          <div className="preview-row maturity"><span>Maturity Amount</span><strong>{fmtINR(sisMaturity)}</strong></div>
+          <div className="preview-row maturity"><span>Return of Investment</span><strong>{fmtINR(sisMaturity)}</strong></div>
           <div className="preview-row"><span>Return</span><strong>100% (Doubles)</strong></div>
           {paymentMode === 'UPI' && txnId && (
             <div className="preview-row"><span>Txn ID</span><strong className="mono">{txnId}</strong></div>
@@ -660,8 +671,8 @@ function ApproveInvestment() {
             <thead>
               <tr>
                 <th>#</th><th>Plan ID</th><th>Investor ID</th><th>Plan</th>
-                <th>Monthly</th><th>Total Inv.</th><th>Maturity</th>
-                <th>Payment</th><th>Txn ID</th><th>UPI App</th><th>Date</th><th>Actions</th>
+                <th>Monthly</th><th>Total Inv.</th><th title="Total Received Investment">TRI</th><th>Return of Investment</th>
+                <th>Status</th><th>Payment</th><th>Txn ID</th><th>UPI App</th><th>Date</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -673,7 +684,15 @@ function ApproveInvestment() {
                   <td>{inv.plan_name}</td>
                   <td>{fmtINR(inv.monthly_amount)}</td>
                   <td>{fmtINR(inv.total_investment_amount)}</td>
+                  <td className="tri-cell">{inv.plan_type === 'MIS' ? fmtINR(triAmount(inv)) : '—'}</td>
                   <td className="maturity-cell">{fmtINR(inv.total_maturity_amount)}</td>
+                  <td>
+                    {inv.plan_type === 'MIS' ? (
+                      <span className="inst-status-pill">{installmentStatus(inv)}</span>
+                    ) : (
+                      <span className="inst-status-pill muted">—</span>
+                    )}
+                  </td>
                   <td>
                     <span className={`pay-badge ${(inv.payment_mode || 'Cash').toLowerCase()}`}>
                       {inv.payment_mode || 'Cash'}
@@ -700,10 +719,13 @@ function ApproveInvestment() {
 
 // ── All Plans ───────────────────────────────────────────────────────────────
 function AllPlans() {
+  const { user } = useAuth();
   const [investments, setInvestments] = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [planType,    setPlanType]    = useState('');
   const [status,      setStatus]      = useState('');
+  const [receiptIrn,  setReceiptIrn]  = useState(null);
+  const canReceipt = ['branchmanager', 'superadmin'].includes(user?.role);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -721,6 +743,7 @@ function AllPlans() {
 
   return (
     <div className="approve-tab">
+      {receiptIrn && <BranchReceipt irn={receiptIrn} onClose={() => setReceiptIrn(null)} />}
       <div className="tab-top-row">
         <h2 className="card-title">All Plans</h2>
         <div className="filter-row">
@@ -747,8 +770,9 @@ function AllPlans() {
             <thead>
               <tr>
                 <th>#</th><th>Plan ID</th><th>Investor ID</th><th>Plan</th>
-                <th>Monthly</th><th>Total Inv.</th><th>Maturity</th>
-                <th>Payment</th><th>Status</th><th>Date</th>
+                <th>Monthly</th><th>Total Inv.</th><th title="Total Received Investment">TRI</th><th>Return of Investment</th>
+                <th>Payment</th><th>Status</th><th>Approval</th><th>Date</th>
+                {canReceipt && <th>Receipt</th>}
               </tr>
             </thead>
             <tbody>
@@ -760,14 +784,31 @@ function AllPlans() {
                   <td>{inv.plan_name}</td>
                   <td>{fmtINR(inv.monthly_amount)}</td>
                   <td>{fmtINR(inv.total_investment_amount)}</td>
+                  <td className="tri-cell">{inv.plan_type === 'MIS' ? fmtINR(triAmount(inv)) : '—'}</td>
                   <td className="maturity-cell">{fmtINR(inv.total_maturity_amount)}</td>
                   <td>
                     <span className={`pay-badge ${(inv.payment_mode || 'Cash').toLowerCase()}`}>
                       {inv.payment_mode || 'Cash'}
                     </span>
                   </td>
-                  <td><span className={`status-pill status-${inv.status}`}>{inv.status}</span></td>
+                  <td>
+                    {inv.plan_type === 'MIS' ? (
+                      <span className="inst-status-pill">{installmentStatus(inv)}</span>
+                    ) : (
+                      <span className="inst-status-pill muted">—</span>
+                    )}
+                  </td>
+                  <td><span className={`status-pill status-${(inv.approval_status || inv.status || '').toLowerCase()}`}>{inv.approval_status || inv.status}</span></td>
                   <td>{inv.investment_date}</td>
+                  {canReceipt && (
+                    <td>
+                      {inv.approval_status === 'Approved' ? (
+                        <button type="button" className="btn-receipt" onClick={() => setReceiptIrn(inv.irn || inv.plan_id)}>
+                          🧾 Receipt
+                        </button>
+                      ) : '—'}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

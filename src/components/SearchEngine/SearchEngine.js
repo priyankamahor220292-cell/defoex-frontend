@@ -5,7 +5,7 @@ import './SearchEngine.css';
 const fmt = n => n != null ? '\u20b9' + Number(n).toLocaleString('en-IN') : '\u2014';
 
 const SEARCH_TYPES = [
-  { key: 'irn',      label: 'Search by Plan ID',  placeholder: 'Enter Plan ID e.g. INV20260001',  icon: '\ud83d\udcdc' },
+  { key: 'irn',      label: 'Search by Plan ID',  placeholder: 'Enter Plan ID e.g. 9-MISINV202601',  icon: '\ud83d\udcdc' },
   { key: 'investor', label: 'Search by Investor',     placeholder: 'Enter name, investor ID or mobile',   icon: '\ud83d\udc64' },
   { key: 'adviser',  label: 'Search by Adviser',      placeholder: 'Enter adviser code, name or mobile',  icon: '\ud83c\udfc5' },
 ];
@@ -139,7 +139,7 @@ export default function SearchEngine() {
                     <div className="se-result-meta">
                       <span>Plan <b>{inv.plan_name}</b></span>
                       <span>Monthly <b>{fmt(inv.monthly_amount)}</b></span>
-                      <span>Maturity <b className="se-green">{fmt(inv.total_maturity_amount)}</b></span>
+                      <span>Return of Investment <b className="se-green">{fmt(inv.total_maturity_amount)}</b></span>
                       <span>ROI <b>{inv.roi_display}</b></span>
                       <span>📱 {inv.investor_mobile}</span>
                     </div>

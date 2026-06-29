@@ -441,6 +441,32 @@
 .mono-cell { font-family: monospace; font-size: 12px; color: #1d4ed8; font-weight: 600; }
 .mono-cell.muted { color: #64748b; font-weight: 500; }
 .maturity-cell { font-weight: 700; color: #16a34a; }
+.tri-cell { font-weight: 600; color: #1d4ed8; }
+
+.inst-status-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #1e40af;
+  white-space: nowrap;
+}
+.inst-status-pill.muted { background: #f3f4f6; color: #9ca3af; }
+
+.btn-receipt {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #0d47a1;
+  border-radius: 6px;
+  background: #fff;
+  color: #0d47a1;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-receipt:hover { background: #0d47a1; color: #fff; }
 .small { font-size: 11px; }
 
 /* ── Badges ───────────────────────────────────────────────────────────────── */

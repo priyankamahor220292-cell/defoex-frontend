@@ -9,6 +9,7 @@ import './ProfilePage.css';
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const isAdmin = user?.role === 'superadmin';
   const [pwForm, setPwForm] = useState({ current_password:'', new_password:'', confirm_password:'' });
   const [saving, setSaving] = useState(false);
   const [pwError, setPwError] = useState('');
@@ -28,15 +29,14 @@ export default function ProfilePage() {
     } finally { setSaving(false); }
   };
 
-  const roleColor = { superadmin:'#A32D2D', branchmanager:'#185FA5', advisor:'#854F0B', member:'#3B6D11' };
-  const roleBg    = { superadmin:'#FCEBEB', branchmanager:'#E6F1FB', advisor:'#FAEEDA', member:'#EAF3DE' };
+  const roleColor = { superadmin:'#A32D2D', branchmanager:'#185FA5', advisor:'#854F0B', adviser:'#854F0B', member:'#3B6D11' };
+  const roleBg    = { superadmin:'#FCEBEB', branchmanager:'#E6F1FB', advisor:'#FAEEDA', adviser:'#FAEEDA', member:'#EAF3DE' };
 
   return (
     <div className="page-enter">
       <div className="page-header"><h1>My Profile</h1></div>
 
-      <div className="profile-layout">
-        {/* Profile card */}
+      <div className={`profile-layout${isAdmin ? '' : ' profile-layout-single'}`}>
         <Panel title="Account Information">
           <div className="profile-avatar-row">
             <div className="profile-avatar">{user?.full_name?.[0]?.toUpperCase() || 'U'}</div>
@@ -61,30 +61,38 @@ export default function ProfilePage() {
           </div>
         </Panel>
 
-        {/* Change password */}
-        <Panel title="Change Password">
-          <div style={{display:'flex',flexDirection:'column',gap:14}}>
-            {pwError && <Alert type="error" onClose={() => setPwError('')}>{pwError}</Alert>}
-            <Field label="Current Password" required>
-              <Input type="password" value={pwForm.current_password}
-                onChange={e => setPwForm({...pwForm, current_password: e.target.value})}
-                placeholder="Enter current password" />
-            </Field>
-            <Field label="New Password" required>
-              <Input type="password" value={pwForm.new_password}
-                onChange={e => setPwForm({...pwForm, new_password: e.target.value})}
-                placeholder="Min 6 characters" />
-            </Field>
-            <Field label="Confirm New Password" required>
-              <Input type="password" value={pwForm.confirm_password}
-                onChange={e => setPwForm({...pwForm, confirm_password: e.target.value})}
-                placeholder="Re-enter new password" />
-            </Field>
-            <button className="btn btn-primary" onClick={changePassword} disabled={saving}>
-              {saving ? 'Updating...' : 'Update Password'}
-            </button>
-          </div>
-        </Panel>
+        {isAdmin ? (
+          <Panel title="Change Password">
+            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+              {pwError && <Alert type="error" onClose={() => setPwError('')}>{pwError}</Alert>}
+              <Field label="Current Password" required>
+                <Input type="password" value={pwForm.current_password}
+                  onChange={e => setPwForm({...pwForm, current_password: e.target.value})}
+                  placeholder="Enter current password" />
+              </Field>
+              <Field label="New Password" required>
+                <Input type="password" value={pwForm.new_password}
+                  onChange={e => setPwForm({...pwForm, new_password: e.target.value})}
+                  placeholder="Min 6 characters" />
+              </Field>
+              <Field label="Confirm New Password" required>
+                <Input type="password" value={pwForm.confirm_password}
+                  onChange={e => setPwForm({...pwForm, confirm_password: e.target.value})}
+                  placeholder="Re-enter new password" />
+              </Field>
+              <button className="btn btn-primary" onClick={changePassword} disabled={saving}>
+                {saving ? 'Updating...' : 'Update Password'}
+              </button>
+            </div>
+          </Panel>
+        ) : (
+          <Panel title="Password">
+            <Alert type="info">
+              Password changes are managed by <strong>Super Admin</strong> only.
+              Contact your administrator if you need your login password reset.
+            </Alert>
+          </Panel>
+        )}
       </div>
     </div>
   );

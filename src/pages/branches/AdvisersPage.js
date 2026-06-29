@@ -33,7 +33,7 @@ const todayISO = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
-const ADVISER_FEE = 500;
+const ADVISER_FEE = 650;
 
 /** Promoter rank N → new adviser may pick ranks 1 .. N-1 (flowchart conditions 01–15). */
 const computeMaxAllowedRank = (a) => {
@@ -52,6 +52,60 @@ const buildRankOptions = (maxRank, allowedRanks) => {
   }
   if (!maxRank) return [];
   return RANK_OPTIONS.filter(r => r.id >= 1 && r.id <= maxRank);
+};
+
+const applyPromoterVerify = (a, today) => {
+  const maxRank = computeMaxAllowedRank(a);
+  const options = buildRankOptions(maxRank, a.allowed_ranks);
+  if (!maxRank || !options.length) {
+    return {
+      ok: false,
+      error: a.allowed_rank_error || 'Promoter rank too low to register a downline adviser',
+      partial: {
+        promoter_name: a.full_name || a.promoter_name || a.name || '',
+        promoter_rank: a.rank_display || a.promoter_rank_display || a.rank_name || a.rank || '',
+        promoter_rank_id: a.rank_id || a.promoter_rank_id,
+      },
+    };
+  }
+  return {
+    ok: true,
+    patch: {
+      registration_date: today,
+      promoter_adviser_id: a.adviser_code || a.promoter_code,
+      promoter_name: a.full_name || a.promoter_name || a.name || '',
+      promoter_rank: a.rank_display || a.promoter_rank_display || a.rank_name || a.rank || '',
+      promoter_rank_id: a.rank_id || a.promoter_rank_id,
+      max_allowed_rank_id: maxRank,
+      rank_options: options,
+      rank_id: null,
+      rank: '',
+    },
+    label: a.full_name || a.promoter_name || a.name || 'Adviser',
+    maxRank,
+  };
+};
+
+/** Try verify endpoints — works with old and new backend deployments. */
+const verifyPromoterAdviser = async (id) => {
+  const body = { adviser_code: id };
+  const headers = auth();
+  const attempts = [
+    () => axios.post(`${API}/api/advisers/verify-promoter`, body, { headers }),
+    () => axios.post(`${API}/api/registration/check-adviser`, body, { headers }),
+    () => axios.get(`${API}/api/advisers/allowed-rank/${encodeURIComponent(id)}`, { headers }),
+  ];
+  let lastErr = null;
+  for (const attempt of attempts) {
+    try {
+      const r = await attempt();
+      if (r.data?.success && r.data?.data) return r.data.data;
+    } catch (e) {
+      lastErr = e;
+      if (e.response?.status === 401) throw e;
+    }
+  }
+  throw lastErr || new Error('Could not verify promoter adviser');
 };
 
 const blank = () => ({
@@ -145,40 +199,18 @@ function Step1({form,set,errors}) {
     if (!id) { toast.error('Enter Promoter Adviser ID'); return; }
     setBusy(true);
     try {
-      const r = await axios.post(`${API}/api/registration/check-adviser`,{adviser_code:id},{headers:auth()});
-      if (r.data.success) {
-        const a = r.data.data;
-        const maxRank = computeMaxAllowedRank(a);
-        const options = buildRankOptions(maxRank, a.allowed_ranks);
-        if (!maxRank || !options.length) {
-          toast.error(a.allowed_rank_error || 'Promoter rank too low to register a downline adviser');
-          set(p=>({
-            ...p,
-            promoter_name:a.full_name||a.name||'',
-            promoter_rank:a.rank_display||a.rank_name||a.rank||'',
-            promoter_rank_id:a.rank_id||a.promoter_rank_id,
-            max_allowed_rank_id:null,
-            rank_options:[],
-            rank_id:null,
-            rank:'',
-          }));
-          return;
-        }
-        set(p=>({
-          ...p,
-          registration_date: today,
-          promoter_name:a.full_name||a.name||'',
-          promoter_rank:a.rank_display||a.rank_name||a.rank||'',
-          promoter_rank_id:a.rank_id||a.promoter_rank_id,
-          max_allowed_rank_id:maxRank,
-          rank_options:options,
-          rank_id:null,
-          rank:'',
-        }));
-        toast.success(`Verified: ${a.full_name||a.name} — select rank 1 to ${maxRank}`);
+      const a = await verifyPromoterAdviser(id);
+      const result = applyPromoterVerify(a, today);
+      if (!result.ok) {
+        toast.error(result.error);
+        set(p => ({ ...p, ...result.partial, max_allowed_rank_id: null, rank_options: [], rank_id: null, rank: '' }));
+        return;
       }
+      set(p => ({ ...p, ...result.patch }));
+      toast.success(`Verified: ${result.label} — select rank 1 to ${result.maxRank}`);
     } catch(e) {
-      toast.error(e.response?.data?.message||'Adviser not found');
+      const msg = e.response?.data?.message || 'Adviser not found. Use Adviser ID (DFX-2026-xxxxx or DEFAD login), not Investor ID (DEFIN).';
+      toast.error(msg);
       set(p=>({...p,promoter_name:'',promoter_rank:'',promoter_rank_id:null,max_allowed_rank_id:null,rank_options:[],rank_id:null,rank:''}));
     } finally { setBusy(false); }
   };
@@ -190,7 +222,7 @@ function Step1({form,set,errors}) {
         <div className="af-row-btn">
           <input className="af-input" value={form.promoter_adviser_id}
             onChange={e=>set(p=>({...p,promoter_adviser_id:e.target.value,promoter_name:'',promoter_rank:'',promoter_rank_id:null,max_allowed_rank_id:null,rank_options:[],rank_id:null,rank:''}))}
-            onKeyDown={e=>e.key==='Enter'&&verify()} placeholder="Enter Promoter Adviser ID"/>
+            onKeyDown={e=>e.key==='Enter'&&verify()} placeholder="Adviser ID e.g. DFX-2026-000006 or DEFAD login"/>
           <button className="af-btn-verify" onClick={verify} disabled={busy}>{busy?'Verifying…':'Verify →'}</button>
         </div>
       </F>
@@ -228,7 +260,7 @@ function Step1({form,set,errors}) {
         </F>
       </div>
       <div className="af-fee-note">
-        ⚠️ Note: Adviser create fee is ₹500, deducted from branch panel limit when adviser is successfully created.
+        ⚠️ Note: Adviser create fee is ₹650, deducted from branch panel limit when adviser is successfully created.
         After creating → go to <strong>Approved Adviser</strong> tab to approve and generate login credentials.
       </div>
     </div>

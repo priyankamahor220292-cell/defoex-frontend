@@ -283,7 +283,7 @@ export default function PrintReceipt({ irn, onClose }) {
                     <span className="fh-val">{plan.investment_date}</span>
                   </div>
                   <div className="fh-row">
-                    <span className="fh-label">Maturity Date</span>
+                    <span className="fh-label">Return of Investment Date</span>
                     <span className="fh-val">{plan.maturity_date}</span>
                   </div>
                   <div className="fh-row">
@@ -299,7 +299,7 @@ export default function PrintReceipt({ irn, onClose }) {
                     <span className="fh-val">{fmt((plan.total_maturity_amount || 0) - (plan.total_investment_amount || 0))} profit</span>
                   </div>
                   <div className="fh-row">
-                    <span className="fh-label">🏆 Total Maturity Amount</span>
+                    <span className="fh-label">🏆 Total Return of Investment</span>
                     <span className="fh-val big">{fmt(plan.total_maturity_amount)}</span>
                   </div>
                 </div>
@@ -323,7 +323,7 @@ export default function PrintReceipt({ irn, onClose }) {
                   <b>Declaration:</b> This Investment Bond certifies that <b>{inv.full_name}</b> (Investor ID: <b>{inv.investor_id}</b>) has enrolled
                   in the Monthly Investment Scheme (MIS) of DefOex Infratech Pvt. Ltd. under Plan <b>{plan.plan_name}</b> for a tenure of <b>{tenureLabel}</b>.
                   The investor agrees to pay <b>{fmt(plan.monthly_amount)}</b> per month for the entire plan duration.
-                  Upon completion of all <b>{total}</b> installments, the maturity amount of <b>{fmt(plan.total_maturity_amount)}</b> shall be
+                  Upon completion of all <b>{total}</b> installments, the return of investment of <b>{fmt(plan.total_maturity_amount)}</b> shall be
                   payable to the investor or nominee as per company terms and conditions.
                   This bond is issued under the authority of DefOex Infratech Pvt. Ltd. and is valid only with the authorised signature.
                 </div>

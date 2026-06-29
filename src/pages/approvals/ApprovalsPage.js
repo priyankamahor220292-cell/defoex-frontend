@@ -296,8 +296,8 @@ function InvApprovals({ onRefresh }) {
 
   const load = useCallback(() => {
     setLoading(true);
-    investmentService.list({ status: 'Pending' })
-      .then(r => setData(r.data.data || {}))
+    investmentService.list({ status: 'pending' })
+      .then(r => setData({ items: r.data.data || [] }))
       .finally(() => setLoading(false));
   }, []);
 
@@ -349,7 +349,7 @@ function InvApprovals({ onRefresh }) {
                   <th>Tenure</th>
                   <th>Monthly</th>
                   <th>Total Invest</th>
-                  <th>Maturity</th>
+                  <th>Return of Investment</th>
                   <th>Due Date</th>
                   <th>Status</th>
                   <th>Actions</th>
@@ -410,7 +410,7 @@ function InvApprovals({ onRefresh }) {
                   ['Tenure',          detail.plan_tenure],
                   ['Investment Date', detail.investment_date],
                   ['Due Date',        detail.due_date],
-                  ['Maturity Date',   detail.maturity_date],
+                  ['Return of Investment Date', detail.maturity_date],
                   ['Installments',    detail.total_installments ? `${detail.total_installments} months` : null],
                 ].map(([k,v]) => v && (
                   <div key={k} className="detail-row"><span>{k}</span><strong>{v}</strong></div>
@@ -422,7 +422,7 @@ function InvApprovals({ onRefresh }) {
                   <strong style={{color:'var(--primary)',fontSize:'1rem'}}>{fmt(detail.monthly_amount)}</strong></div>
                 <div className="detail-row"><span>Total Investment</span>
                   <strong>{fmt(detail.total_investment_amount)}</strong></div>
-                <div className="detail-row"><span>Maturity Amount</span>
+                <div className="detail-row"><span>Return of Investment</span>
                   <strong style={{color:'var(--success)',fontSize:'1rem'}}>{fmt(detail.total_maturity_amount)}</strong></div>
                 <div className="detail-row"><span>Payment Mode</span>
                   <strong>{detail.payment_mode}</strong></div>

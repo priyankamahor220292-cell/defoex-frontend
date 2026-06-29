@@ -18,28 +18,44 @@ const todayISO = () => {
 const INVESTOR_FEE = 10;
 
 export default function MembersPage() {
+  const { user } = useAuth();
+  const isAdviser = user?.role === 'advisor' || user?.role === 'adviser';
   const [view, setView] = useState('list');
   const [pendingCount, setPendingCount] = useState(0);
 
   const refreshPending = useCallback(() => {
+    if (isAdviser) return;
     api.get('/api/registration/pending').then(r => {
       setPendingCount(r.data.data?.items?.length || 0);
     }).catch(() => {});
-  }, []);
+  }, [isAdviser]);
 
   useEffect(() => { refreshPending(); }, [refreshPending]);
 
   return (
     <div className="page-enter">
       <div className="page-header">
-        <div><h1>Investor Management</h1><p className="text-muted">Manage investor registrations and approvals</p></div>
+        <div>
+          <h1>{isAdviser ? 'My Investors' : 'Investor Management'}</h1>
+          <p className="text-muted">
+            {isAdviser
+              ? 'Investors registered under your adviser code only'
+              : 'Manage investor registrations and approvals'}
+          </p>
+        </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-          <button className={`btn ${view==='list'?'btn-primary':'btn-outline'}`} onClick={()=>setView('list')}>List Investors</button>
-          <button className={`btn ${view==='create'?'btn-primary':'btn-outline'}`} onClick={()=>setView('create')}>+ New Registration</button>
-          <button className={`btn ${view==='approved'?'btn-primary':'btn-outline'}`} onClick={()=>setView('approved')}>
-            Approved Investor
-            {pendingCount > 0 && <span style={{marginLeft:6,background:'#ff5252',color:'#fff',borderRadius:10,padding:'1px 7px',fontSize:'0.7rem',fontWeight:700}}>{pendingCount}</span>}
+          <button className={`btn ${view==='list'?'btn-primary':'btn-outline'}`} onClick={()=>setView('list')}>
+            {isAdviser ? 'My Investors' : 'List Investors'}
           </button>
+          {!isAdviser && (
+            <>
+              <button className={`btn ${view==='create'?'btn-primary':'btn-outline'}`} onClick={()=>setView('create')}>+ New Registration</button>
+              <button className={`btn ${view==='approved'?'btn-primary':'btn-outline'}`} onClick={()=>setView('approved')}>
+                Approved Investor
+                {pendingCount > 0 && <span style={{marginLeft:6,background:'#ff5252',color:'#fff',borderRadius:10,padding:'1px 7px',fontSize:'0.7rem',fontWeight:700}}>{pendingCount}</span>}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -216,7 +232,7 @@ function InvestorDetailModal({ investor: m, onClose }) {
         <div style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:'0.85rem'}}>No plans yet</div>
       ) : (
         <table className="data-table">
-          <thead><tr><th>IRN</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Maturity</th><th>ROI</th><th>Status</th></tr></thead>
+          <thead><tr><th>IRN</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Return of Investment</th><th>ROI</th><th>Status</th></tr></thead>
           <tbody>
             {plans.map(p=>(
               <tr key={p.id}>

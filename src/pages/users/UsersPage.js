@@ -43,6 +43,21 @@ export default function UsersPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [saving, setSaving]     = useState(false);
   const [form, setForm] = useState({ username:'', email:'', password:'', full_name:'', mobile:'', role:'branchmanager', branch_id:'' });
+  const [resetUser, setResetUser] = useState(null);
+  const [resetPw, setResetPw] = useState('');
+  const [resetting, setResetting] = useState(false);
+  const [credModal, setCredModal] = useState(null);
+
+  const showCreds = (data, title = 'Login Credentials') => {
+    if (!data?.password) return;
+    setCredModal({ title, username: data.username, password: data.password, full_name: data.full_name, role: data.role });
+  };
+
+  const copyCreds = () => {
+    if (!credModal) return;
+    navigator.clipboard.writeText(`Username: ${credModal.username}\nPassword: ${credModal.password}`);
+    toast.success('Copied to clipboard');
+  };
 
   const load = () => {
     setLoading(true);
@@ -63,8 +78,9 @@ export default function UsersPage() {
     if (req.some(f => !form[f])) return toast.error('Fill all required fields');
     setSaving(true);
     try {
-      await api.post('/api/users/', { ...form, branch_id: form.branch_id ? parseInt(form.branch_id) : null });
+      const r = await api.post('/api/users/', { ...form, branch_id: form.branch_id ? parseInt(form.branch_id) : null });
       toast.success('User created!');
+      showCreds(r.data.data, 'New User Credentials');
       setShowCreate(false);
       setForm({ username:'', email:'', password:'', full_name:'', mobile:'', role:'branchmanager', branch_id:'' });
       load();
@@ -81,6 +97,22 @@ export default function UsersPage() {
     } catch { toast.error('Failed'); }
   };
 
+  const resetPassword = async () => {
+    if (!resetUser) return;
+    setResetting(true);
+    try {
+      const r = await api.post(`/api/users/${resetUser.id}/reset-password`, {
+        password: resetPw.trim() || undefined,
+      });
+      toast.success('Password reset successfully');
+      showCreds(r.data.data, 'Password Reset');
+      setResetUser(null);
+      setResetPw('');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to reset password');
+    } finally { setResetting(false); }
+  };
+
   const roleColor = { superadmin:'#A32D2D', branchmanager:'#185FA5', advisor:'#854F0B', member:'#3B6D11' };
   const roleBg    = { superadmin:'#FCEBEB', branchmanager:'#E6F1FB', advisor:'#FAEEDA', member:'#EAF3DE' };
 
@@ -95,7 +127,7 @@ export default function UsersPage() {
         {loading ? <Loading /> : (
           <table className="data-table">
             <thead>
-              <tr><th>#</th><th>Name</th><th>Username</th><th>Email</th><th>Mobile</th><th>Role</th><th>Branch</th><th>Status</th><th>Action</th></tr>
+              <tr><th>#</th><th>Name</th><th>Username</th><th>Email</th><th>Mobile</th><th>Role</th><th>Branch</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {users.map((u, i) => (
@@ -113,9 +145,14 @@ export default function UsersPage() {
                   <td>{branches.find(b => b.id === u.branch_id)?.branch_name || '—'}</td>
                   <td><Badge status={u.is_active ? 'Active' : 'Inactive'} /></td>
                   <td>
-                    <button className={`btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-success'}`} onClick={() => toggleActive(u)}>
-                      {u.is_active ? 'Deactivate' : 'Activate'}
-                    </button>
+                    <div className="user-actions">
+                      <button className="btn btn-outline btn-sm" onClick={() => { setResetUser(u); setResetPw(''); }}>
+                        Reset Password
+                      </button>
+                      <button className={`btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-success'}`} onClick={() => toggleActive(u)}>
+                        {u.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -150,11 +187,59 @@ export default function UsersPage() {
             </Select>
           </Field>
         )}
-        <Alert type="info" className="mt-2">The user can login immediately with the username and password you set here.</Alert>
+        <Alert type="info" className="mt-2">The user can login immediately. Save the password shown after creation — only Super Admin can view or reset passwords.</Alert>
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
           <button className="btn btn-outline" onClick={() => setShowCreate(false)}>Cancel</button>
           <button className="btn btn-primary" onClick={create} disabled={saving}>{saving ? 'Creating...' : 'Create User'}</button>
         </div>
+      </Modal>
+
+      <Modal open={!!resetUser} onClose={() => setResetUser(null)} title="Reset User Password" size="sm">
+        {resetUser && (
+          <div>
+            <p style={{ fontSize:'0.9rem', marginBottom:16, lineHeight:1.6 }}>
+              Reset password for <strong>{resetUser.full_name}</strong> ({resetUser.username})
+            </p>
+            <Field label="New Password (optional)">
+              <Input
+                type="text"
+                value={resetPw}
+                onChange={e => setResetPw(e.target.value)}
+                placeholder="Leave blank to auto-generate"
+              />
+            </Field>
+            <Alert type="warning" className="mt-2">
+              The new password will be shown once after reset. Share it securely with the user.
+            </Alert>
+            <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:16 }}>
+              <button className="btn btn-outline" onClick={() => setResetUser(null)} disabled={resetting}>Cancel</button>
+              <button className="btn btn-primary" onClick={resetPassword} disabled={resetting}>
+                {resetting ? 'Resetting...' : 'Reset Password'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!credModal} onClose={() => setCredModal(null)} title={credModal?.title || 'Login Credentials'} size="sm">
+        {credModal && (
+          <div>
+            <p style={{ fontSize:'0.9rem', marginBottom:12 }}>
+              <strong>{credModal.full_name}</strong> ({credModal.role})
+            </p>
+            <div className="cred-box">
+              <div><span>Username</span><strong>{credModal.username}</strong></div>
+              <div><span>Password</span><strong style={{ color:'var(--primary)' }}>{credModal.password}</strong></div>
+            </div>
+            <Alert type="info" className="mt-2">
+              Passwords cannot be viewed again after closing this dialog. Copy and share securely.
+            </Alert>
+            <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:16 }}>
+              <button className="btn btn-outline" onClick={copyCreds}>Copy</button>
+              <button className="btn btn-primary" onClick={() => setCredModal(null)}>Done</button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

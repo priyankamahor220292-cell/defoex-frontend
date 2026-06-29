@@ -42,7 +42,7 @@ export default function MemberDashboard() {
           <div className="msc-value primary">{fmt(totalInvested)}</div>
         </div>
         <div className="member-stat-card">
-          <div className="msc-label">Total Return On Investment Value</div>
+          <div className="msc-label">Total Return of Investment</div>
           <div className="msc-value success">{fmt(totalMaturity)}</div>
         </div>
         <div className="member-stat-card">
@@ -59,7 +59,7 @@ export default function MemberDashboard() {
               <th>Plan</th>
               <th>Monthly</th>
               <th>Total Invested</th>
-              <th>Return On Investment</th>
+              <th>Return of Investment</th>
               <th>Progress</th>
               <th>Next Due</th>
               <th>Status</th>

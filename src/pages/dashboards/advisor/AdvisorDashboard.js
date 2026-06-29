@@ -240,7 +240,7 @@ function SelfContributionView() {
         {loading ? <Loading /> : (
           <table className="data-table">
             <thead>
-              <tr><th>#</th><th>IRN</th><th>Investor Name</th><th>Investor ID</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Maturity</th><th>ROI</th></tr>
+              <tr><th>#</th><th>IRN</th><th>Investor Name</th><th>Investor ID</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Return of Investment</th><th>ROI</th></tr>
             </thead>
             <tbody>
               {(data?.items||[]).map((inv,i) => (
@@ -323,7 +323,7 @@ function DownContributionView() {
           {loading ? <Loading /> : (
             <table className="data-table">
               <thead>
-                <tr><th>#</th><th>IRN</th><th>Investor</th><th>Adviser</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Maturity</th></tr>
+                <tr><th>#</th><th>IRN</th><th>Investor</th><th>Adviser</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Return of Investment</th></tr>
               </thead>
               <tbody>
                 {(data?.items||[]).map((inv,i) => (
