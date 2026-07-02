@@ -9,6 +9,9 @@ import Alert from '../../components/Alert/Alert';
 import { memberService } from '../../services/memberService';
 import { investmentService } from '../../services/investmentService';
 import InvestorCredentialsModal from '../../components/InvestorCredentialsModal/InvestorCredentialsModal';
+import { formatISTDate } from '../../utils/dateTime';
+import { useAuth } from '../../context/AuthContext';
+import { branchService } from '../../services/branchService';
 import './ApprovalsPage.css';
 
 export default function ApprovalsPage() {
@@ -328,11 +331,27 @@ function RegApprovals({ onRefresh }) {
   );
 }
 function InvApprovals({ onRefresh, setPlanCount }) {
+  const { user, wallet: authWallet } = useAuth();
   const [data, setData]       = useState({ items: [], total: 0 });
+  const [branchBalance, setBranchBalance] = useState(null);
   const [loading, setLoading] = useState(false);
   const [detail, setDetail]   = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [acting, setActing]   = useState(false);
+
+  const loadWallet = useCallback(() => {
+    if (authWallet?.current_balance != null) {
+      setBranchBalance(Number(authWallet.current_balance));
+      return;
+    }
+    branchService.list()
+      .then(r => {
+        const branches = r.data?.data || [];
+        const branch = branches.find(b => b.id === user?.branch_id) || branches[0];
+        setBranchBalance(Number(branch?.wallet?.current_balance ?? 0));
+      })
+      .catch(() => setBranchBalance(null));
+  }, [authWallet, user?.branch_id]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -344,22 +363,33 @@ function InvApprovals({ onRefresh, setPlanCount }) {
         if (setPlanCount) setPlanCount(total);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [setPlanCount]);
 
+  useEffect(() => { loadWallet(); }, [loadWallet]);
   useEffect(() => { load(); }, [load]);
 
+  const canAfford = (plan) => branchBalance == null || Number(plan.monthly_amount || 0) <= branchBalance;
+
   const act = async (plan, action) => {
+    if (action === 'approve' && !canAfford(plan)) {
+      toast.error(
+        `Insufficient branch balance. Need ₹${Number(plan.monthly_amount).toLocaleString('en-IN')}, ` +
+        `available ₹${Number(branchBalance || 0).toLocaleString('en-IN')}. Ask admin to top up Branch Wallet.`
+      );
+      return;
+    }
     setActing(true);
     try {
-      await investmentService.approve(plan.id, action);
-      toast.success(
+      const { data: resp } = await investmentService.approve(plan.id, action);
+      toast.success(resp?.message || (
         action === 'approve'
           ? `✅ Plan ${plan.irn} approved — wallet updated`
           : `❌ Plan ${plan.irn} rejected`
-      );
+      ));
       setConfirm(null);
       setDetail(null);
       load();
+      loadWallet();
       onRefresh();
     } catch (e) {
       toast.error(e.response?.data?.message || 'Action failed');
@@ -382,8 +412,18 @@ function InvApprovals({ onRefresh, setPlanCount }) {
                 <strong>Note:</strong> Approving a plan will automatically deduct the monthly amount
                 from the branch current balance and add it to the cash wallet.
                 Benefits will be calculated for the adviser.
+                {branchBalance != null && (
+                  <> Branch current balance: <strong>₹{branchBalance.toLocaleString('en-IN')}</strong>.</>
+                )}
               </Alert>
             )}
+            {data.items?.some(p => !canAfford(p)) && (
+              <Alert type="error">
+                One or more plans cannot be approved — branch wallet balance is too low.
+                Go to <strong>Branch Wallet</strong> or ask Super Admin to top up funds first.
+              </Alert>
+            )}
+            <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
@@ -411,13 +451,15 @@ function InvApprovals({ onRefresh, setPlanCount }) {
                     <td><strong style={{color:'var(--primary)'}}>{fmt(p.monthly_amount)}</strong></td>
                     <td>{fmt(p.total_investment_amount)}</td>
                     <td><strong style={{color:'var(--success)'}}>{fmt(p.total_maturity_amount)}</strong></td>
-                    <td>{p.due_date}</td>
+                    <td>{formatISTDate(p.due_date)}</td>
                     <td><Badge status={p.approval_status} /></td>
                     <td onClick={e => e.stopPropagation()}>
                       <div className="action-btns">
                         <button className="btn btn-outline btn-sm"
                           onClick={() => setDetail(p)}>👁 View</button>
                         <button className="btn btn-success btn-sm"
+                          disabled={!canAfford(p)}
+                          title={!canAfford(p) ? 'Insufficient branch wallet balance' : 'Approve plan'}
                           onClick={() => setConfirm({ plan: p, action: 'approve' })}>✓ Approve</button>
                         <button className="btn btn-danger btn-sm"
                           onClick={() => setConfirm({ plan: p, action: 'reject' })}>✕ Reject</button>
@@ -436,6 +478,7 @@ function InvApprovals({ onRefresh, setPlanCount }) {
                 )}
               </tbody>
             </table>
+            </div>
           </>
         )}
       </Panel>
@@ -453,9 +496,9 @@ function InvApprovals({ onRefresh, setPlanCount }) {
                   ['Plan Name',       detail.plan_name],
                   ['Plan Type',       detail.plan_type],
                   ['Tenure',          detail.plan_tenure],
-                  ['Investment Date', detail.investment_date],
-                  ['Due Date',        detail.due_date],
-                  ['Return of Investment Date', detail.maturity_date],
+                  ['Investment Date', formatISTDate(detail.investment_date)],
+                  ['Due Date',        formatISTDate(detail.due_date)],
+                  ['Return of Investment Date', formatISTDate(detail.maturity_date)],
                   ['Installments',    detail.total_installments ? `${detail.total_installments} months` : null],
                 ].map(([k,v]) => v && (
                   <div key={k} className="detail-row"><span>{k}</span><strong>{v}</strong></div>
@@ -493,6 +536,7 @@ function InvApprovals({ onRefresh, setPlanCount }) {
                 ✕ Reject
               </button>
               <button className="btn btn-success btn-lg"
+                disabled={!canAfford(detail)}
                 onClick={() => { setDetail(null); setConfirm({ plan: detail, action: 'approve' }); }}>
                 ✓ Approve Plan
               </button>

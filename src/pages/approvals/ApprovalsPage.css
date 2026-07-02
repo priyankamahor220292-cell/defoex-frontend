@@ -156,6 +156,15 @@
 }
 
 /* Table enhancements */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll .data-table {
+  min-width: 960px;
+}
+
 .clickable-row {
   cursor: pointer;
 }

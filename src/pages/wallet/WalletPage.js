@@ -99,10 +99,15 @@ function AdminWalletView() {
     }
     setTopping(true);
     try {
-      await api.post(`/api/branches/${selBranch}/topup`, {
+      const { data: resp } = await api.post(`/api/branches/${selBranch}/topup`, {
         amount: amt, description: desc || 'Admin top-up'
       });
-      toast.success(`${fmtIndian(amt)} sent to branch!`);
+      const topupAt = resp?.data?.topup_at;
+      toast.success(
+        topupAt
+          ? `${fmtIndian(amt)} sent to branch at ${formatIST(topupAt)}`
+          : `${fmtIndian(amt)} sent to branch!`
+      );
       setAmount(''); setDesc('');
       load();
     } catch(e) {

@@ -4,6 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import './LoginPage.css';
 
+const DEFAULT_LOGINS = [
+  { label: 'Super Admin', username: 'superadmin', password: 'Defoex@2024' },
+  { label: 'Admin', username: 'Nitin', password: 'Admin@123' },
+];
+
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -47,11 +52,20 @@ export default function LoginPage() {
           'Login API not found (404). On the live server, run: git pull && bash deploy_live.sh'
         );
       } else {
-        setError(msg || 'Invalid username or password. Passwords are case-sensitive.');
+        setError(
+          msg === 'Invalid credentials'
+            ? 'Invalid username or password. Click a default login on the left to auto-fill (passwords are case-sensitive).'
+            : (msg || 'Invalid username or password. Passwords are case-sensitive.')
+        );
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const fillCredentials = ({ username, password }) => {
+    setForm({ username, password });
+    setError('');
   };
 
   return (
@@ -78,9 +92,18 @@ export default function LoginPage() {
         </div>
 
         <div className="login-credentials-hint">
-          <div className="hint-title">Default Logins</div>
-          <div className="hint-row"><span>Super Admin</span><code>superadmin / Defoex@2024</code></div>
-          <div className="hint-row"><span>Admin</span><code>Nitin / Admin@123</code></div>
+          <div className="hint-title">Default Logins <span className="hint-sub">(click to fill)</span></div>
+          {DEFAULT_LOGINS.map((cred) => (
+            <button
+              key={cred.label}
+              type="button"
+              className="hint-row"
+              onClick={() => fillCredentials(cred)}
+            >
+              <span>{cred.label}</span>
+              <code>{cred.username} / {cred.password}</code>
+            </button>
+          ))}
         </div>
 
         <div className="login-quote">"DefOex : Together We Build, Together We Grow..."</div>

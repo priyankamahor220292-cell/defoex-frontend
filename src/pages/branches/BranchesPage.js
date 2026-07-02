@@ -8,6 +8,7 @@ import Alert from '../../components/Alert/Alert';
 import { branchService } from '../../services/branchService';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+import { formatIST } from '../../utils/dateTime';
 import './BranchesPage.css';
 
 const STATES = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat',
@@ -86,8 +87,13 @@ export default function BranchesPage() {
     if (amt > MAX_TOPUP) return toast.error(`Maximum transaction is ${fmt(MAX_TOPUP)}`);
     setSaving(true);
     try {
-      await branchService.topup(topupBranch.id, { amount: amt, description: topupDesc || 'Admin top-up' });
-      toast.success(`${fmt(amt)} added to ${topupBranch.branch_name}!`);
+      const { data: resp } = await branchService.topup(topupBranch.id, { amount: amt, description: topupDesc || 'Admin top-up' });
+      const topupAt = resp?.data?.topup_at;
+      toast.success(
+        topupAt
+          ? `${fmt(amt)} added to ${topupBranch.branch_name} at ${formatIST(topupAt)}`
+          : `${fmt(amt)} added to ${topupBranch.branch_name}!`
+      );
       setShowTopup(false);
       setTopupAmt('');
       setTopupDesc('');

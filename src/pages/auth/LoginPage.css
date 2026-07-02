@@ -187,12 +187,29 @@
   font-weight: 700;
   margin-bottom: 8px;
 }
+.hint-sub {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: rgba(255,255,255,0.45);
+}
 .hint-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 3px 0;
+  width: 100%;
+  padding: 6px 8px;
+  margin: 0 -8px;
   font-size: 0.8rem;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+.hint-row:hover {
+  background: rgba(255,255,255,0.08);
 }
 .hint-row span { color: rgba(255,255,255,0.5); }
 .hint-row code {
