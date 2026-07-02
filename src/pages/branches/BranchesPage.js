@@ -61,7 +61,11 @@ export default function BranchesPage() {
       });
       load();
     } catch (e) {
-      toast.error(e.response?.data?.message || 'Failed to create branch');
+      if (!e.response) {
+        toast.error('Cannot reach the backend. In Terminal 1 run: cd defoex-backend && python app.py');
+      } else {
+        toast.error(e.response?.data?.message || 'Failed to create branch');
+      }
     } finally { setSaving(false); }
   };
 
