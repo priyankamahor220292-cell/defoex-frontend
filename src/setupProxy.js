@@ -1,8 +1,10 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
-const DEFAULT_LOCAL = 'http://localhost:5001';
-const LIVE_API = 'http://3.110.209.154';
-const API_TARGET = process.env.REACT_APP_PROXY_TARGET || DEFAULT_LOCAL;
+const DEFAULT_LOCAL = 'http://127.0.0.1:5001';
+const DEFAULT_SERVER = 'http://127.0.0.1:8000';
+const API_TARGET =
+  process.env.REACT_APP_PROXY_TARGET ||
+  (process.env.REACT_APP_SERVER_DEPLOY === '1' ? DEFAULT_SERVER : DEFAULT_LOCAL);
 
 const proxyOpts = {
   target: API_TARGET,

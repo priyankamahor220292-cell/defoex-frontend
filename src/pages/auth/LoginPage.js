@@ -45,11 +45,11 @@ export default function LoginPage() {
       const msg = err.response?.data?.message;
       if (!err.response) {
         setError(
-          'Cannot reach the API server. Start the backend (python3 app.py in defoex-backend) and restart npm start.'
+          'Cannot reach the API server. On the live server run: cd defoex-backend && bash deploy_live.sh'
         );
-      } else if (status === 404) {
+      } else if (status === 502 || status === 404) {
         setError(
-          'Login API not found (404). On the live server, run: git pull && bash deploy_live.sh'
+          msg || 'Login API not found. On the server run: cd defoex-backend && bash deploy_live.sh'
         );
       } else {
         setError(

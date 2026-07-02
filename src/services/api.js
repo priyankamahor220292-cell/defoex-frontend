@@ -1,10 +1,33 @@
 import axios from 'axios';
+import { resolveApiBaseUrl } from '../utils/apiBaseUrl';
 
 const api = axios.create({
-  // Empty baseURL in dev → requests go through setupProxy.js (same-origin, no CORS)
-  baseURL: process.env.REACT_APP_API_URL || '',
+  baseURL: resolveApiBaseUrl(),
   headers: { 'Content-Type': 'application/json' }
 });
+
+// Reject API routes that accidentally return the React index.html (no nginx /api proxy)
+api.interceptors.response.use(
+  res => {
+    const url = res.config?.url || '';
+    const ct = (res.headers['content-type'] || '').toLowerCase();
+    if (url.includes('/api/') && ct.includes('text/html')) {
+      const err = new Error('API returned HTML instead of JSON');
+      err.response = {
+        status: 502,
+        data: {
+          message:
+            'API is not configured on this server. SSH in and run: cd defoex-backend && bash deploy_live.sh',
+        },
+        headers: res.headers,
+      };
+      err.config = res.config;
+      return Promise.reject(err);
+    }
+    return res;
+  },
+  err => Promise.reject(err)
+);
 
 // Request interceptor - attach token (skip auth endpoints)
 api.interceptors.request.use(config => {
