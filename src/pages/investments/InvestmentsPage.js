@@ -1,878 +1,489 @@
-// InvestmentPlans.jsx — DefOex IntraTech
-// Payment: Cash & UPI fields always shown inline — no popup/dialog
-// Amount must be multiple of ₹1,000 (min ₹1,000)
-// Works for: New MIS Plan | New SIS Plan | MIS Contribution
-
 import React, { useState, useEffect, useCallback } from 'react';
-import toast from 'react-hot-toast';
+import Panel from '../../components/Panel/Panel';
+import Field, { Input, Select } from '../../components/Field/Field';
+import Loading from '../../components/Loading/Loading';
+import Alert from '../../components/Alert/Alert';
 import api from '../../services/api';
+import { investmentService } from '../../services/investmentService';
 import { useAuth } from '../../context/AuthContext';
+import PrintReceipt from './PrintReceipt';
 import BranchReceipt from './BranchReceipt';
-import './InvestmentsPage.css';
+import toast from 'react-hot-toast';
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-const fmtINR = (n) =>
-  n == null ? '—' : `₹${Number(n).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-const validateAmount = (val) => {
-  const n = Number(val);
-  if (!val || isNaN(n) || n <= 0) return 'Enter a valid amount';
-  if (n < 1000)    return 'Minimum amount is ₹1,000';
-  if (n % 1000 !== 0) return 'Amount must be a multiple of ₹1,000';
-  return null;
+const MIS_TABLE = {
+  '3Y': { months:36, label:'3 Years' },
+  '5Y': { months:60, label:'5 Years' },
+  '7Y': { months:84, label:'7 Years' },
 };
-
-const validateTxnId = (val) => {
-  if (!val || !val.trim()) return 'Transaction ID is required for UPI';
-  if (!/^[A-Za-z0-9]{1,35}$/.test(val.trim())) return 'Alphanumeric only, max 35 characters';
-  return null;
+const ROI = {
+  '3Y': { num:7,  den:6,  pct:'16.67', label:'16.67%' },
+  '5Y': { num:4,  den:3,  pct:'33.33', label:'33.33%' },
+  '7Y': { num:19, den:14, pct:'35.71', label:'35.71%' },
 };
-
-const installmentStatus = (inv) =>
-  inv.installment_status ||
-  `${inv.installments_paid || 0} of ${inv.total_installments || 0}`;
-
-const triAmount = (inv) =>
-  inv.total_received_investment ??
-  inv.tri ??
-  (inv.installments_paid || 0) * (inv.monthly_amount || 0);
-
-// MIS plan configs
-const MIS_PLANS = {
-  '3Y': { label: 'MIS 3 Year Plan',  months: 36, roiNum: 7,  roiDen: 6  },
-  '5Y': { label: 'MIS 5 Year Plan',  months: 60, roiNum: 4,  roiDen: 3  },
-  '7Y': { label: 'MIS 7 Year Plan',  months: 84, roiNum: 19, roiDen: 14 },
+const calcMaturity = (monthly, tenure, months) => {
+  const r = ROI[tenure];
+  return Math.round((monthly * months * r.num) / r.den);
 };
+const fmt = n => '\u20b9' + (n||0).toLocaleString('en-IN');
 
-const UPI_APPS = ['PhonePe', 'Paytm', 'GPay', 'BHIM', 'Other'];
-
-async function fetchMemberDetails(memberId, { setMemberInfo, setFetching }) {
-  if (!memberId.trim()) {
-    toast.error('Enter Investor ID, Adviser ID, or Login ID');
-    return;
-  }
-  setFetching(true);
-  setMemberInfo(null);
-  try {
-    const r = await api.get('/api/investment-plans/get-investor-details', {
-      params: { member_id: memberId.trim().toUpperCase() },
-    });
-    if (r.data.success) {
-      setMemberInfo(r.data.data);
-      if (r.data.data.can_create_plan === false) {
-        toast.error(r.data.message || 'Cannot create plan for this ID yet', { duration: 6000 });
-      } else {
-        toast.success(`Found: ${r.data.data.full_name}`);
-      }
-    }
-  } catch (e) {
-    const status = e.response?.status;
-    const msg = e.response?.data?.message;
-    if (status === 401) {
-      toast.error(msg || 'Session expired — please sign in again', { duration: 6000 });
-    } else {
-      toast.error(msg || 'Member not found or not approved', { duration: 6000 });
-    }
-  } finally {
-    setFetching(false);
-  }
-}
-
-function guardPlanCreation(memberInfo) {
-  if (!memberInfo) {
-    toast.error('Fetch member details first');
-    return false;
-  }
-  if (memberInfo.can_create_plan === false) {
-    toast.error('Register and approve this person as an investor before creating a plan');
-    return false;
-  }
-  return true;
-}
-
-// ── Shared: Payment Fields (inline, always visible) ─────────────────────────
-// When Cash is selected  → only Cash row is visible
-// When UPI is selected   → Transaction ID + UPI App appear below
-function PaymentFields({ paymentMode, setPaymentMode, txnId, setTxnId, upiApp, setUpiApp, errors }) {
-  return (
-    <div className="payment-section">
-      <label className="field-label">Payment Mode</label>
-
-      {/* Radio row */}
-      <div className="payment-toggle">
-        <label className={`toggle-option ${paymentMode === 'Cash' ? 'active' : ''}`}>
-          <input
-            type="radio"
-            name="payment_mode"
-            value="Cash"
-            checked={paymentMode === 'Cash'}
-            onChange={() => setPaymentMode('Cash')}
-          />
-          <span className="toggle-icon">💵</span>
-          <span>Cash</span>
-        </label>
-        <label className={`toggle-option ${paymentMode === 'UPI' ? 'active' : ''}`}>
-          <input
-            type="radio"
-            name="payment_mode"
-            value="UPI"
-            checked={paymentMode === 'UPI'}
-            onChange={() => setPaymentMode('UPI')}
-          />
-          <span className="toggle-icon">📱</span>
-          <span>UPI</span>
-        </label>
-      </div>
-
-      {/* UPI extra fields — only shown when UPI selected */}
-      {paymentMode === 'UPI' && (
-        <div className="upi-fields">
-          {/* Transaction ID */}
-          <div className="field-group">
-            <label className="field-label">
-              Transaction ID <span className="required">*</span>
-            </label>
-            <input
-              className={`field-input ${errors?.txnId ? 'field-error' : ''}`}
-              type="text"
-              placeholder="Enter UPI Transaction ID"
-              maxLength={35}
-              value={txnId}
-              onChange={(e) => setTxnId(e.target.value.replace(/[^A-Za-z0-9]/g, ''))}
-            />
-            <div className="field-hint-row">
-              {errors?.txnId
-                ? <span className="error-msg">{errors.txnId}</span>
-                : <span className="hint-msg">Alphanumeric only, max 35 characters</span>
-              }
-              <span className="char-count">{txnId.length}/35</span>
-            </div>
-          </div>
-
-          {/* UPI App selector */}
-          <div className="field-group">
-            <label className="field-label">
-              UPI App <span className="required">*</span>
-            </label>
-            <div className="upi-app-row">
-              {UPI_APPS.map((app) => (
-                <button
-                  key={app}
-                  type="button"
-                  className={`upi-chip ${upiApp === app ? 'selected' : ''}`}
-                  onClick={() => setUpiApp(app)}
-                >
-                  {app === 'PhonePe' && '💜 '}
-                  {app === 'Paytm'   && '💙 '}
-                  {app === 'GPay'    && '💚 '}
-                  {app === 'BHIM'    && '🇮🇳 '}
-                  {app === 'Other'   && '📱 '}
-                  {app}
-                </button>
-              ))}
-            </div>
-            {errors?.upiApp && <span className="error-msg">{errors.upiApp}</span>}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Shared: Member Info Card ────────────────────────────────────────────────
-function MemberCard({ info }) {
-  if (!info) return null;
-  const blocked = info.can_create_plan === false;
-  return (
-    <div className={`member-card ${blocked ? 'member-card-blocked' : ''}`}>
-      {blocked && (
-        <div className="member-card-warning">
-          {info.status === 'pending'
-            ? `Investor registration (${info.pending_investor_id || 'pending'}) must be approved before creating a plan.`
-            : 'This person is an adviser only — register and approve them as an investor first.'}
-        </div>
-      )}
-      <div className="member-card-row">
-        <span>Investor Name</span><strong>{info.full_name}</strong>
-      </div>
-      {info.father_name && (
-        <div className="member-card-row">
-          <span>Father's Name</span><strong>{info.father_name}</strong>
-        </div>
-      )}
-      <div className="member-card-row">
-        <span>Mobile</span><strong>{info.mobile}</strong>
-      </div>
-      {info.adviser_name && (
-        <div className="member-card-row">
-          <span>Adviser</span>
-          <strong>{info.adviser_name} <em>({info.adviser_id})</em></strong>
-        </div>
-      )}
-      <div className="member-card-row">
-        <span>Status</span>
-        <span className={`status-pill status-${info.status}`}>{info.status}</span>
-      </div>
-    </div>
-  );
-}
-
-// ── New MIS Plan ────────────────────────────────────────────────────────────
-function NewMISPlan() {
-  const [memberId,    setMemberId]    = useState('');
-  const [memberInfo,  setMemberInfo]  = useState(null);
-  const [tenure,      setTenure]      = useState('3Y');
-  const [amount,      setAmount]      = useState('');
-  const [amtErr,      setAmtErr]      = useState('');
-  const [paymentMode, setPaymentMode] = useState('Cash');
-  const [txnId,       setTxnId]       = useState('');
-  const [upiApp,      setUpiApp]      = useState('');
-  const [upiErrors,   setUpiErrors]   = useState({});
-  const [fetching,    setFetching]    = useState(false);
-  const [loading,     setLoading]     = useState(false);
-
-  // Plan preview
-  const preview = useCallback(() => {
-    const n = Number(amount);
-    if (!n || n % 1000 !== 0) return null;
-    const p = MIS_PLANS[tenure];
-    return {
-      label:     p.label,
-      months:    p.months,
-      monthly:   n,
-      totalInv:  n * p.months,
-      maturity:  Math.round((n * p.months * p.roiNum) / p.roiDen),
-    };
-  }, [amount, tenure]);
-
-  const getDetails = () =>
-    fetchMemberDetails(memberId, { setMemberInfo, setFetching });
-
-  const validateUpi = () => {
-    if (paymentMode !== 'UPI') return true;
-    const e = {};
-    const te = validateTxnId(txnId);
-    if (te) e.txnId = te;
-    if (!upiApp) e.upiApp = 'Select a UPI App';
-    setUpiErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleSubmit = async () => {
-    if (!guardPlanCreation(memberInfo)) return;
-    const ae = validateAmount(amount);
-    if (ae) { setAmtErr(ae); return; }
-    if (!validateUpi()) return;
-
-    setLoading(true);
-    try {
-      const payload = {
-        investor_id:    memberInfo.investor_id,
-        plan_tenure:    tenure,
-        monthly_amount: Number(amount),
-        payment_mode:   paymentMode,
-        ...(paymentMode === 'UPI' ? { transaction_id: txnId.trim(), upi_app: upiApp.toLowerCase() } : {}),
-      };
-      const r = await api.post('/api/investment-plans/create-mis', payload);
-      if (r.data.success) {
-        const planId = r.data.data?.irn || r.data.data?.plan_id;
-        toast.success(planId ? `${r.data.message} Plan ID: ${planId}` : r.data.message);
-        setMemberId(''); setMemberInfo(null); setAmount(''); setTenure('3Y');
-        setPaymentMode('Cash'); setTxnId(''); setUpiApp(''); setUpiErrors({});
-      }
-    } catch (e) { toast.error(e.response?.data?.message || 'Failed to create MIS Plan'); }
-    finally { setLoading(false); }
-  };
-
-  const p = preview();
-
-  return (
-    <div className="plan-layout">
-      <div className="plan-card">
-        <h2 className="card-title">New MIS Plan</h2>
-
-        {/* Member lookup */}
-        <div className="field-group">
-          <label className="field-label">Investor ID / Adviser ID / Login ID</label>
-          <div className="input-btn-row">
-            <input
-              className="field-input"
-              placeholder="e.g. DFX-2026-000002 or DEFAD202605"
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && getDetails()}
-            />
-            <button className="btn-get" onClick={getDetails} disabled={fetching}>
-              {fetching ? '...' : 'Get Details'}
-            </button>
-          </div>
-        </div>
-
-        <MemberCard info={memberInfo} />
-
-        {/* Tenure */}
-        <div className="field-group">
-          <label className="field-label">Plan Tenure</label>
-          <div className="tenure-row">
-            {Object.entries(MIS_PLANS).map(([key, pl]) => (
-              <button
-                key={key}
-                className={`tenure-btn ${tenure === key ? 'selected' : ''}`}
-                onClick={() => setTenure(key)}
-              >
-                <span className="tenure-key">{key}</span>
-                <span className="tenure-sub">{pl.months} months</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Monthly amount */}
-        <div className="field-group">
-          <label className="field-label">Monthly Amount (₹)</label>
-          <input
-            className={`field-input ${amtErr ? 'field-error' : ''}`}
-            type="number"
-            placeholder="Enter amount — multiples of ₹1,000"
-            step={1000} min={1000}
-            value={amount}
-            onChange={(e) => { setAmount(e.target.value); setAmtErr(validateAmount(e.target.value) || ''); }}
-          />
-          {amtErr
-            ? <span className="error-msg">{amtErr}</span>
-            : amount && !validateAmount(amount) && <span className="ok-msg">✓ {fmtINR(Number(amount))}</span>
-          }
-        </div>
-
-        {/* Payment — inline, no popup */}
-        <PaymentFields
-          paymentMode={paymentMode} setPaymentMode={setPaymentMode}
-          txnId={txnId}       setTxnId={setTxnId}
-          upiApp={upiApp}     setUpiApp={setUpiApp}
-          errors={upiErrors}
-        />
-
-        <button className="btn-submit" onClick={handleSubmit} disabled={loading || !memberInfo}>
-          {loading ? 'Creating Plan...' : 'Create MIS Plan'}
-        </button>
-      </div>
-
-      {/* Live preview panel */}
-      {p && (
-        <div className="preview-panel">
-          <h3 className="preview-title">Plan Preview</h3>
-          <div className="preview-row"><span>Plan</span><strong>{p.label}</strong></div>
-          <div className="preview-row"><span>Tenure</span><strong>{tenure} · {p.months} months</strong></div>
-          <div className="preview-row"><span>Monthly</span><strong>{fmtINR(p.monthly)}</strong></div>
-          <div className="preview-row"><span>Installments</span><strong>{p.months}</strong></div>
-          <div className="preview-row"><span>Total Investment</span><strong>{fmtINR(p.totalInv)}</strong></div>
-          <div className="preview-row maturity"><span>Return of Investment</span><strong>{fmtINR(p.maturity)}</strong></div>
-          {paymentMode === 'UPI' && txnId && (
-            <div className="preview-row"><span>Txn ID</span><strong className="mono">{txnId}</strong></div>
-          )}
-          {paymentMode === 'UPI' && upiApp && (
-            <div className="preview-row"><span>UPI App</span><strong>{upiApp}</strong></div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── New SIS Plan ────────────────────────────────────────────────────────────
-function NewSISPlan() {
-  const [memberId,    setMemberId]    = useState('');
-  const [memberInfo,  setMemberInfo]  = useState(null);
-  const [amount,      setAmount]      = useState('');
-  const [amtErr,      setAmtErr]      = useState('');
-  const [paymentMode, setPaymentMode] = useState('Cash');
-  const [txnId,       setTxnId]       = useState('');
-  const [upiApp,      setUpiApp]      = useState('');
-  const [upiErrors,   setUpiErrors]   = useState({});
-  const [fetching,    setFetching]    = useState(false);
-  const [loading,     setLoading]     = useState(false);
-
-  const getDetails = () =>
-    fetchMemberDetails(memberId, { setMemberInfo, setFetching });
-
-  const validateUpi = () => {
-    if (paymentMode !== 'UPI') return true;
-    const e = {};
-    const te = validateTxnId(txnId);
-    if (te) e.txnId = te;
-    if (!upiApp) e.upiApp = 'Select a UPI App';
-    setUpiErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleSubmit = async () => {
-    if (!guardPlanCreation(memberInfo)) return;
-    const ae = validateAmount(amount);
-    if (ae) { setAmtErr(ae); return; }
-    if (!validateUpi()) return;
-
-    setLoading(true);
-    try {
-      const payload = {
-        investor_id:  memberInfo.investor_id,
-        lump_amount:  Number(amount),
-        payment_mode: paymentMode,
-        ...(paymentMode === 'UPI' ? { transaction_id: txnId.trim(), upi_app: upiApp.toLowerCase() } : {}),
-      };
-      const r = await api.post('/api/investment-plans/create-sis', payload);
-      if (r.data.success) {
-        const planId = r.data.data?.irn || r.data.data?.plan_id;
-        toast.success(planId ? `${r.data.message} Plan ID: ${planId}` : r.data.message);
-        setMemberId(''); setMemberInfo(null); setAmount('');
-        setPaymentMode('Cash'); setTxnId(''); setUpiApp(''); setUpiErrors({});
-      }
-    } catch (e) { toast.error(e.response?.data?.message || 'Failed to create SIS Plan'); }
-    finally { setLoading(false); }
-  };
-
-  const sisMaturity = amount && !validateAmount(amount) ? Number(amount) * 2 : null;
-
-  return (
-    <div className="plan-layout">
-      <div className="plan-card">
-        <h2 className="card-title">New SIS Plan</h2>
-        <div className="plan-badge">7.5 Years · Lump Sum · Amount Doubles</div>
-
-        <div className="field-group">
-          <label className="field-label">Investor ID / Adviser ID / Login ID</label>
-          <div className="input-btn-row">
-            <input
-              className="field-input"
-              placeholder="e.g. DFX-2026-000002 or DEFAD202605"
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && getDetails()}
-            />
-            <button className="btn-get" onClick={getDetails} disabled={fetching}>
-              {fetching ? '...' : 'Get Details'}
-            </button>
-          </div>
-        </div>
-
-        <MemberCard info={memberInfo} />
-
-        <div className="field-group">
-          <label className="field-label">Lump Sum Amount (₹)</label>
-          <input
-            className={`field-input ${amtErr ? 'field-error' : ''}`}
-            type="number"
-            placeholder="Enter amount — multiples of ₹1,000"
-            step={1000} min={1000}
-            value={amount}
-            onChange={(e) => { setAmount(e.target.value); setAmtErr(validateAmount(e.target.value) || ''); }}
-          />
-          {amtErr
-            ? <span className="error-msg">{amtErr}</span>
-            : amount && !validateAmount(amount) && <span className="ok-msg">✓ {fmtINR(Number(amount))}</span>
-          }
-        </div>
-
-        <PaymentFields
-          paymentMode={paymentMode} setPaymentMode={setPaymentMode}
-          txnId={txnId}       setTxnId={setTxnId}
-          upiApp={upiApp}     setUpiApp={setUpiApp}
-          errors={upiErrors}
-        />
-
-        <button className="btn-submit" onClick={handleSubmit} disabled={loading || !memberInfo}>
-          {loading ? 'Creating Plan...' : 'Create SIS Plan'}
-        </button>
-      </div>
-
-      {sisMaturity && (
-        <div className="preview-panel">
-          <h3 className="preview-title">Plan Preview</h3>
-          <div className="preview-row"><span>Plan</span><strong>SIS 7.5 Year</strong></div>
-          <div className="preview-row"><span>Tenure</span><strong>7.5 Years · 90 months</strong></div>
-          <div className="preview-row"><span>Investment</span><strong>{fmtINR(Number(amount))}</strong></div>
-          <div className="preview-row maturity"><span>Return of Investment</span><strong>{fmtINR(sisMaturity)}</strong></div>
-          <div className="preview-row"><span>Return</span><strong>100% (Doubles)</strong></div>
-          {paymentMode === 'UPI' && txnId && (
-            <div className="preview-row"><span>Txn ID</span><strong className="mono">{txnId}</strong></div>
-          )}
-          {paymentMode === 'UPI' && upiApp && (
-            <div className="preview-row"><span>UPI App</span><strong>{upiApp}</strong></div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── MIS Contribution ────────────────────────────────────────────────────────
-function MISContribution() {
-  const [investmentId, setInvestmentId] = useState('');
-  const [planInfo,     setPlanInfo]     = useState(null);
-  const [paymentMode,  setPaymentMode]  = useState('Cash');
-  const [txnId,        setTxnId]        = useState('');
-  const [upiApp,       setUpiApp]       = useState('');
-  const [upiErrors,    setUpiErrors]    = useState({});
-  const [fetching,     setFetching]     = useState(false);
-  const [loading,      setLoading]      = useState(false);
-
-  const loadPlan = async () => {
-    if (!investmentId.trim()) { toast.error('Enter Investment ID or Investor ID'); return; }
-    setFetching(true); setPlanInfo(null);
-    try {
-      const r = await api.get('/api/investment-plans/list', { params: { per_page: 200 } });
-      const search = investmentId.trim().toUpperCase();
-      const found = (r.data.data || []).find(
-        (inv) =>
-          String(inv.id) === search ||
-          (inv.irn || inv.plan_id || '').toUpperCase() === search ||
-          (inv.investor_id || '').toUpperCase() === search
-      );
-      if (found) { setPlanInfo(found); toast.success('Plan loaded'); }
-      else toast.error('Investment plan not found');
-    } catch (e) { toast.error('Failed to load investment'); }
-    finally { setFetching(false); }
-  };
-
-  const validateUpi = () => {
-    if (paymentMode !== 'UPI') return true;
-    const e = {};
-    const te = validateTxnId(txnId);
-    if (te) e.txnId = te;
-    if (!upiApp) e.upiApp = 'Select a UPI App';
-    setUpiErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleSubmit = async () => {
-    if (!planInfo) { toast.error('Load a plan first'); return; }
-    if (!validateUpi()) return;
-
-    setLoading(true);
-    try {
-      const payload = {
-        investment_id: planInfo.id,
-        amount:        planInfo.monthly_amount,
-        payment_mode:  paymentMode,
-        ...(paymentMode === 'UPI' ? { transaction_id: txnId.trim(), upi_app: upiApp.toLowerCase() } : {}),
-      };
-      const r = await api.post('/api/investment-plans/mis-contribution', payload);
-      if (r.data.success) {
-        const planId = r.data.data?.irn || r.data.data?.plan_id;
-        toast.success(planId ? `${r.data.message} Plan ID: ${planId}` : r.data.message);
-        setPaymentMode('Cash'); setTxnId(''); setUpiApp(''); setUpiErrors({});
-        loadPlan();
-      }
-    } catch (e) { toast.error(e.response?.data?.message || 'Failed to record contribution'); }
-    finally { setLoading(false); }
-  };
-
-  return (
-    <div className="plan-layout single">
-      <div className="plan-card">
-        <h2 className="card-title">MIS Contribution</h2>
-
-        <div className="field-group">
-          <label className="field-label">Plan ID (INV…) / Investor ID</label>
-          <div className="input-btn-row">
-            <input
-              className="field-input"
-              placeholder="e.g. INV20260001"
-              value={investmentId}
-              onChange={(e) => setInvestmentId(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && loadPlan()}
-            />
-            <button className="btn-get" onClick={loadPlan} disabled={fetching}>
-              {fetching ? '...' : 'Load Plan'}
-            </button>
-          </div>
-        </div>
-
-        {planInfo && (
-          <div className="contrib-info">
-            <div className="contrib-row"><span>Plan ID</span><strong className="mono">{planInfo.irn || planInfo.plan_id}</strong></div>
-            <div className="contrib-row"><span>Plan</span><strong>{planInfo.plan_name}</strong></div>
-            <div className="contrib-row"><span>Investor ID</span><strong className="mono">{planInfo.investor_id}</strong></div>
-            <div className="contrib-row"><span>Status</span><span className={`status-pill status-${planInfo.status}`}>{planInfo.status}</span></div>
-            <div className="contrib-amount-box">
-              <span>Installment Amount</span>
-              <strong>{fmtINR(planInfo.monthly_amount)}</strong>
-            </div>
-          </div>
-        )}
-
-        {planInfo && (
-          <>
-            <PaymentFields
-              paymentMode={paymentMode} setPaymentMode={setPaymentMode}
-              txnId={txnId}       setTxnId={setTxnId}
-              upiApp={upiApp}     setUpiApp={setUpiApp}
-              errors={upiErrors}
-            />
-
-            <button className="btn-submit" onClick={handleSubmit} disabled={loading}>
-              {loading ? 'Recording...' : `Pay ${fmtINR(planInfo.monthly_amount)} Installment`}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Approve Investment ──────────────────────────────────────────────────────
-function ApproveInvestment() {
-  const [investments, setInvestments] = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [search,      setSearch]      = useState('');
-
-  const fetchPending = async () => {
-    setLoading(true);
-    try {
-      const r = await api.get('/api/investment-plans/list', { params: { status: 'pending', per_page: 100 } });
-      setInvestments(r.data.data || []);
-    } catch { toast.error('Failed to load pending investments'); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { fetchPending(); }, []);
-
-  const handleAction = async (id, action) => {
-    try {
-      const r = await api.post(`/api/investment-plans/approve-investment/${id}`, { action });
-      if (r.data.success) { toast.success(r.data.message); fetchPending(); }
-    } catch (e) { toast.error(e.response?.data?.message || `Failed to ${action}`); }
-  };
-
-  const filtered = investments.filter((inv) =>
-    !search ||
-    (inv.irn || inv.plan_id || '').toLowerCase().includes(search.toLowerCase()) ||
-    (inv.investor_id || '').toLowerCase().includes(search.toLowerCase()) ||
-    String(inv.id).includes(search)
-  );
-
-  return (
-    <div className="approve-tab">
-      <div className="tab-top-row">
-        <h2 className="card-title">Approve Investment</h2>
-        <input
-          className="search-input"
-          placeholder="Search by Plan ID (INV…) or Investor ID…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      {loading ? (
-        <div className="state-msg">Loading…</div>
-      ) : filtered.length === 0 ? (
-        <div className="state-msg">No pending investments</div>
-      ) : (
-        <div className="table-wrap">
-          <table className="inv-table">
-            <thead>
-              <tr>
-                <th>#</th><th>Plan ID</th><th>Investor ID</th><th>Plan</th>
-                <th>Monthly</th><th>Total Inv.</th><th title="Total Received Investment">TRI</th><th>Return of Investment</th>
-                <th>Status</th><th>Payment</th><th>Txn ID</th><th>UPI App</th><th>Date</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((inv, i) => (
-                <tr key={inv.id}>
-                  <td>{i + 1}</td>
-                  <td className="mono-cell">{inv.irn || inv.plan_id}</td>
-                  <td className="mono-cell muted">{inv.investor_id}</td>
-                  <td>{inv.plan_name}</td>
-                  <td>{fmtINR(inv.monthly_amount)}</td>
-                  <td>{fmtINR(inv.total_investment_amount)}</td>
-                  <td className="tri-cell">{inv.plan_type === 'MIS' ? fmtINR(triAmount(inv)) : '—'}</td>
-                  <td className="maturity-cell">{fmtINR(inv.total_maturity_amount)}</td>
-                  <td>
-                    {inv.plan_type === 'MIS' ? (
-                      <span className="inst-status-pill">{installmentStatus(inv)}</span>
-                    ) : (
-                      <span className="inst-status-pill muted">—</span>
-                    )}
-                  </td>
-                  <td>
-                    <span className={`pay-badge ${(inv.payment_mode || 'Cash').toLowerCase()}`}>
-                      {inv.payment_mode || 'Cash'}
-                    </span>
-                  </td>
-                  <td className="mono-cell small">{inv.transaction_id || '—'}</td>
-                  <td>{inv.upi_app || '—'}</td>
-                  <td>{inv.investment_date}</td>
-                  <td>
-                    <div className="action-pair">
-                      <button className="btn-approve" onClick={() => handleAction(inv.id, 'approve')}>✓ Approve</button>
-                      <button className="btn-reject"  onClick={() => handleAction(inv.id, 'reject')}>✗ Reject</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── All Plans ───────────────────────────────────────────────────────────────
-function AllPlans() {
+export default function InvestmentsPage() {
+  const [view, setView] = useState('list');
   const { user } = useAuth();
-  const isMember = user?.role === 'member';
-  const [investments, setInvestments] = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [planType,    setPlanType]    = useState('');
-  const [status,      setStatus]      = useState('');
-  const [receiptIrn,  setReceiptIrn]  = useState(null);
-  const canReceipt = ['branchmanager', 'superadmin'].includes(user?.role);
-
-  const fetchAll = async () => {
-    setLoading(true);
-    try {
-      const params = { per_page: 100 };
-      if (planType) params.plan_type = planType;
-      if (status)   params.status = status;
-      const r = await api.get('/api/investment-plans/list', { params });
-      setInvestments(r.data.data || []);
-    } catch { toast.error('Failed to load investments'); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { fetchAll(); }, [planType, status]);
-
-  return (
-    <div className="approve-tab">
-      {receiptIrn && <BranchReceipt irn={receiptIrn} onClose={() => setReceiptIrn(null)} />}
-      <div className="tab-top-row">
-        <h2 className="card-title">{isMember ? 'My Plans' : 'All Plans'}</h2>
-        <div className="filter-row">
-          <select className="filter-sel" value={planType} onChange={(e) => setPlanType(e.target.value)}>
-            <option value="">All Types</option>
-            <option value="MIS">MIS</option>
-            <option value="SIS">SIS</option>
-          </select>
-          <select className="filter-sel" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="active">Active</option>
-            <option value="rejected">Rejected</option>
-          </select>
-        </div>
-      </div>
-
-      {loading ? <div className="state-msg">Loading…</div> : investments.length === 0 ? (
-        <div className="state-msg">No plans found</div>
-      ) : (
-        <div className="table-wrap">
-          <table className="inv-table">
-            <thead>
-              <tr>
-                <th>#</th><th>Plan ID</th><th>Investor ID</th><th>Plan</th>
-                <th>Monthly</th><th>Total Inv.</th><th title="Total Received Investment">TRI</th><th>Return of Investment</th>
-                <th>Payment</th><th>Status</th><th>Approval</th><th>Date</th>
-                {canReceipt && <th>Receipt</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {investments.map((inv, i) => (
-                <tr key={inv.id}>
-                  <td>{i + 1}</td>
-                  <td className="mono-cell">{inv.irn || inv.plan_id}</td>
-                  <td className="mono-cell muted">{inv.investor_id}</td>
-                  <td>{inv.plan_name}</td>
-                  <td>{fmtINR(inv.monthly_amount)}</td>
-                  <td>{fmtINR(inv.total_investment_amount)}</td>
-                  <td className="tri-cell">{inv.plan_type === 'MIS' ? fmtINR(triAmount(inv)) : '—'}</td>
-                  <td className="maturity-cell">{fmtINR(inv.total_maturity_amount)}</td>
-                  <td>
-                    <span className={`pay-badge ${(inv.payment_mode || 'Cash').toLowerCase()}`}>
-                      {inv.payment_mode || 'Cash'}
-                    </span>
-                  </td>
-                  <td>
-                    {inv.plan_type === 'MIS' ? (
-                      <span className="inst-status-pill">{installmentStatus(inv)}</span>
-                    ) : (
-                      <span className="inst-status-pill muted">—</span>
-                    )}
-                  </td>
-                  <td><span className={`status-pill status-${(inv.approval_status || inv.status || '').toLowerCase()}`}>{inv.approval_status || inv.status}</span></td>
-                  <td>{inv.investment_date}</td>
-                  {canReceipt && (
-                    <td>
-                      {inv.approval_status === 'Approved' ? (
-                        <button type="button" className="btn-receipt" onClick={() => setReceiptIrn(inv.irn || inv.plan_id)}>
-                          🧾 Receipt
-                        </button>
-                      ) : '—'}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Root ────────────────────────────────────────────────────────────────────
-const STAFF_TABS = [
-  { key: 'all',     label: 'All Plans' },
-  { key: 'mis',     label: 'New MIS Plan' },
-  { key: 'sis',     label: 'New SIS Plan' },
-  { key: 'contrib', label: 'MIS Contribution' },
-  { key: 'approve', label: 'Approve Investment' },
-];
-
-const MEMBER_TABS = [{ key: 'all', label: 'My Plans' }];
-
-export default function InvestmentPlans() {
-  const { user } = useAuth();
-  const isMember = user?.role === 'member';
-  const tabs = isMember ? MEMBER_TABS : STAFF_TABS;
-  const [tab, setTab] = useState(isMember ? 'all' : 'mis');
-
-  useEffect(() => {
-    if (isMember && tab !== 'all') setTab('all');
-  }, [isMember, tab]);
-
   return (
     <div className="page-enter">
       <div className="page-header">
-        <div>
-          <h1>{isMember ? 'My Investments' : 'Investment Plans'}</h1>
-          <p className="text-muted">
-            {isMember ? 'View your MIS and SIS investment plans' : 'MIS / SIS plan management'}
-          </p>
+        <div><h1>Investment Plans</h1><p className="text-muted">MIS / SIS plan management</p></div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button className={`btn ${view==='list'?'btn-primary':'btn-outline'}`} onClick={()=>setView('list')}>All Plans</button>
+          <button className={`btn ${view==='mis'?'btn-primary':'btn-outline'}`} onClick={()=>setView('mis')}>New MIS Plan</button>
+          <button className={`btn ${view==='sis'?'btn-primary':'btn-outline'}`} onClick={()=>setView('sis')}>New SIS Plan</button>
+          <button className={`btn ${view==='contrib'?'btn-primary':'btn-outline'}`} onClick={()=>setView('contrib')}>MIS Contribution</button>
+          <button className={`btn ${view==='approve'?'btn-primary':'btn-outline'}`} onClick={()=>setView('approve')}>Approve Investment</button>
         </div>
       </div>
 
-      {tabs.length > 1 && (
-        <div className="tab-bar">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              className={`tab-btn ${tab === t.key ? 'active' : ''}`}
-              onClick={() => setTab(t.key)}
-            >
-              {t.label}
-            </button>
+      {view === 'list'    && <PlanList onView={setView} />}
+      {view === 'mis'     && <NewPlanForm type="MIS" onDone={()=>setView('approve')} />}
+      {view === 'sis'     && <NewPlanForm type="SIS" onDone={()=>setView('approve')} />}
+      {view === 'contrib' && <MISContribution />}
+      {view === 'approve' && <ApproveInvestment />}
+    </div>
+  );
+}
+
+/* ══ LIST INVESTMENT ══ */
+function PlanList() {
+  const { user } = useAuth();
+  const [data, setData] = useState({ items:[], total:0 });
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [receiptIrn, setReceiptIrn] = useState(null);
+  const [branchReceiptIrn, setBranchReceiptIrn] = useState(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    investmentService.list({ page:1 })
+      .then(r => setData(r.data.data || {}))
+      .catch(e => toast.error(e.response?.data?.message || 'Cannot connect to server'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = search
+    ? (data.items||[]).filter(p =>
+        p.irn?.toLowerCase().includes(search.toLowerCase()) ||
+        p.investor_id?.toLowerCase().includes(search.toLowerCase()) ||
+        p.plan_name?.toLowerCase().includes(search.toLowerCase()))
+    : (data.items||[]);
+
+  return (
+    <>
+      <Panel title="All Investment Plans">
+        {/* Search by Bond No. */}
+        <div style={{display:'flex',gap:10,marginBottom:14,maxWidth:400}}>
+          <input style={{flex:1,padding:'8px 12px',border:'1px solid var(--border)',borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontSize:'0.85rem'}}
+            placeholder="🔍 Search by Bond No. (IRN) / Investor ID"
+            value={search} onChange={e=>setSearch(e.target.value)} />
+          {search && <button className="btn btn-outline btn-sm" onClick={()=>setSearch('')}>✕</button>}
+        </div>
+
+        {loading ? <Loading /> : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>#</th><th>IRN (Bond No.)</th><th>Investor ID</th>
+                <th>Plan</th><th>Monthly</th><th>Total Invest</th>
+                <th>Maturity</th><th>ROI</th>
+                <th>Investment Status</th>
+                <th>Approval</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p,i) => (
+                <tr key={p.id}>
+                  <td>{i+1}</td>
+                  <td><code style={{fontFamily:'monospace',fontSize:'0.75rem',color:'var(--success)'}}>{p.irn}</code></td>
+                  <td><code style={{fontFamily:'monospace',fontSize:'0.75rem',color:'var(--primary)'}}>{p.investor_id}</code></td>
+                  <td><strong>{p.plan_name}</strong></td>
+                  <td><strong style={{color:'var(--primary)'}}>{fmt(p.monthly_amount)}</strong></td>
+                  <td>{fmt(p.total_investment_amount)}</td>
+                  <td><strong style={{color:'var(--success)'}}>{fmt(p.total_maturity_amount)}</strong></td>
+                  <td style={{color:'var(--primary)',fontWeight:700}}>{p.roi_display}</td>
+                  {/* Investment Status: 3M-1of36, 5M-1of60, 6M-1of84 */}
+                  <td>
+                    <span style={{fontFamily:'monospace',fontSize:'0.75rem',background:'var(--bg-table-head)',padding:'2px 8px',borderRadius:4,fontWeight:700}}>
+                      {p.plan_tenure==='3Y'?'3M':p.plan_tenure==='5Y'?'5M':'7M'}-{p.installments_paid||0}of{p.total_installments}
+                    </span>
+                  </td>
+                  <td>
+                    <span style={{fontSize:'0.72rem',fontWeight:700,padding:'2px 9px',borderRadius:10,
+                      background:p.approval_status==='Approved'?'var(--success-bg)':p.approval_status==='Rejected'?'var(--danger-bg)':'var(--warning-bg)',
+                      color:p.approval_status==='Approved'?'var(--success)':p.approval_status==='Rejected'?'var(--danger)':'var(--warning)'}}>
+                      {p.approval_status}
+                    </span>
+                  </td>
+                  <td>
+                    {user?.role === 'superadmin'
+                      ? <button className="btn btn-primary btn-sm" onClick={()=>setReceiptIrn(p.irn)} title="Print Investment Bond">📜 Bond</button>
+                      : <button className="btn btn-outline btn-sm" onClick={()=>setBranchReceiptIrn(p.irn)} title="Print Receipt">🧾 Receipt</button>
+                    }
+                  </td>
+                </tr>
+              ))}
+              {filtered.length===0&&(
+                <tr><td colSpan={11} style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
+                  {search?`No results for "${search}"` : 'No plans found'}
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </Panel>
+      {receiptIrn && <PrintReceipt irn={receiptIrn} onClose={()=>setReceiptIrn(null)} />}
+      {branchReceiptIrn && <BranchReceipt irn={branchReceiptIrn} onClose={()=>setBranchReceiptIrn(null)} />}
+    </>
+  );
+}
+
+/* ══ NEW MIS / SIS PLAN FORM ══ */
+function NewPlanForm({ type, onDone }) {
+  const { user }      = useAuth();
+  const [investorId,  setInvestorId]  = useState('');
+  const [investorInfo,setInvestorInfo]= useState(null);
+  const [tenure,      setTenure]      = useState('3Y');
+  const [monthly,     setMonthly]     = useState('');
+  const [payMode,     setPayMode]     = useState('Cash');
+  const [invDate,     setInvDate]     = useState(new Date().toISOString().split('T')[0]);
+  const [submitting,  setSubmitting]  = useState(false);
+
+  const months   = MIS_TABLE[tenure]?.months || 36;
+  const total    = parseFloat(monthly||0) * months;
+  const maturity = calcMaturity(parseFloat(monthly||0), tenure, months);
+  const roi      = ROI[tenure];
+
+  const getDetails = async () => {
+    if (!investorId.trim()) { toast.error('Enter Investor ID'); return; }
+    try {
+      const { data } = await api.get(`/api/investment-plans/get-investor-details/${investorId.trim()}`);
+      setInvestorInfo(data.data);
+      toast.success('Investor details loaded');
+    } catch(e) {
+      toast.error(e.response?.data?.message || 'Investor not found');
+      setInvestorInfo(null);
+    }
+  };
+
+  const submit = async () => {
+    if (!investorId || !monthly || parseFloat(monthly)<=0) {
+      toast.error('Enter Investor ID and Monthly Amount'); return;
+    }
+    setSubmitting(true);
+    try {
+      await investmentService.create({
+        investor_id:    investorId.trim(),
+        plan_tenure:    tenure,
+        monthly_amount: parseFloat(monthly),
+        payment_mode:   payMode,
+        investment_date:invDate,
+        plan_type:      type,
+      });
+      toast.success(`${type} Plan created! Go to Approve Investment tab.`);
+      onDone();
+    } catch(e) {
+      toast.error(e.response?.data?.message || 'Failed to create plan');
+    } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:16,alignItems:'start'}}>
+      <Panel title={`New ${type} Plan`}>
+
+        {/* Step 1: Enter Investor ID + Get Details button */}
+        <div style={{background:'var(--bg-input)',borderRadius:'var(--border-radius-sm)',padding:14,marginBottom:14,border:'1px solid var(--border)'}}>
+          <Field label="Investor ID *">
+            <div style={{display:'flex',gap:8}}>
+              <Input value={investorId} onChange={e=>{setInvestorId(e.target.value.trim());setInvestorInfo(null);}}
+                placeholder="e.g. DFX-2026-000001" style={{flex:1,fontFamily:'monospace'}} />
+              <button className="btn btn-outline" onClick={getDetails} style={{flexShrink:0}}>Get Details</button>
+            </div>
+          </Field>
+
+          {investorInfo && (
+            <div style={{background:'var(--success-bg)',border:'1px solid var(--success)',borderRadius:'var(--border-radius-sm)',padding:'12px 14px',marginTop:8}}>
+              <div style={{fontWeight:700,color:'var(--success)',marginBottom:6}}>✅ Investor Details</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 16px',fontSize:'0.82rem'}}>
+                <div><span style={{color:'var(--text-muted)'}}>Investor ID: </span><strong>{investorInfo.investor_id}</strong></div>
+                <div><span style={{color:'var(--text-muted)'}}>Name: </span><strong>{investorInfo.investor_name}</strong></div>
+                <div><span style={{color:'var(--text-muted)'}}>Father: </span>{investorInfo.father_name||'—'}</div>
+                <div><span style={{color:'var(--text-muted)'}}>Mobile: </span><strong>{investorInfo.mobile}</strong></div>
+                <div><span style={{color:'var(--text-muted)'}}>Adviser ID: </span><code style={{fontSize:'0.75rem'}}>{investorInfo.adviser_id}</code></div>
+                <div><span style={{color:'var(--text-muted)'}}>Adviser: </span>{investorInfo.adviser_name}</div>
+                <div><span style={{color:'var(--text-muted)'}}>Nominee: </span>{investorInfo.nominee_name||'—'} ({investorInfo.nominee_relation||'—'})</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Step 2: Add Plan */}
+        <div style={{fontWeight:700,marginBottom:10}}>Add Plan</div>
+
+        {/* Tenure selector */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:14}}>
+          {Object.entries(MIS_TABLE).map(([key,v]) => (
+            <div key={key}
+              onClick={()=>setTenure(key)}
+              style={{padding:'14px',textAlign:'center',borderRadius:'var(--border-radius-lg)',cursor:'pointer',
+                border:`2px solid ${tenure===key?'var(--primary)':'var(--border)'}`,
+                background:tenure===key?'var(--primary)':'var(--bg-input)'}}>
+              <div style={{fontWeight:700,fontSize:'1rem',color:tenure===key?'#fff':'var(--text-primary)'}}>{type} {key}</div>
+              <div style={{fontSize:'0.78rem',color:tenure===key?'rgba(255,255,255,0.7)':'var(--text-muted)'}}>{v.label}</div>
+              <div style={{fontSize:'0.78rem',color:tenure===key?'rgba(255,255,255,0.8)':'var(--text-muted)'}}>{v.months} Months</div>
+            </div>
           ))}
         </div>
-      )}
 
-      <div className="tab-body">
-        {tab === 'all'     && <AllPlans />}
-        {!isMember && tab === 'mis'     && <NewMISPlan />}
-        {!isMember && tab === 'sis'     && <NewSISPlan />}
-        {!isMember && tab === 'contrib' && <MISContribution />}
-        {!isMember && tab === 'approve' && <ApproveInvestment />}
+        <div className="reg-form-row">
+          <Field label={`Monthly Amount (\u20b9) *`}>
+            <Input type="number" value={monthly} onChange={e=>setMonthly(e.target.value)} placeholder="e.g. 1000" min="100" />
+          </Field>
+          <Field label="Payment Mode">
+            <Select value={payMode} onChange={e=>setPayMode(e.target.value)}>
+              {['Cash','Cheque','DD','UPI','NEFT'].map(m=><option key={m}>{m}</option>)}
+            </Select>
+          </Field>
+        </div>
+        <Field label="Investment Date">
+          <Input type="date" value={invDate} onChange={e=>setInvDate(e.target.value)} />
+        </Field>
+
+        <Alert type="warning" style={{marginBottom:12}}>
+          After creating, go to <strong>Approve Investment</strong> tab to approve and generate Investment ID.
+        </Alert>
+
+        <button className="btn btn-primary btn-full" onClick={submit} disabled={submitting||!monthly}>
+          {submitting ? 'Creating...' : `✓ Create ${type} Plan`}
+        </button>
+      </Panel>
+
+      {/* Plan Preview */}
+      <div style={{background:'var(--bg-sidebar)',borderRadius:'var(--border-radius-lg)',padding:20,position:'sticky',top:16}}>
+        <div style={{fontWeight:700,color:'#fff',marginBottom:16,fontSize:'0.9rem'}}>Plan Preview</div>
+        {[
+          ['Plan Tenure',       `${MIS_TABLE[tenure]?.label} (${months} months)`],
+          ['Total Installments', months],
+          ['Monthly Amount',    <span style={{color:'var(--accent-light)',fontWeight:700}}>{fmt(parseFloat(monthly)||0)}</span>],
+          ['Total Investment',  fmt(total)],
+          ['Maturity Amount',   <span style={{color:'#a5d6a7',fontWeight:800,fontSize:'1.1rem'}}>{fmt(maturity)}</span>],
+          ['ROI',               <span style={{color:'var(--accent-light)',fontWeight:700}}>{roi.label}</span>],
+          ['First Due Date',    (() => { const d=new Date(invDate); d.setMonth(d.getMonth()+1); return d.toISOString().split('T')[0]; })()],
+        ].map(([k,v]) => (
+          <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid rgba(255,255,255,0.07)',fontSize:'0.82rem'}}>
+            <span style={{color:'rgba(255,255,255,0.5)'}}>{k}</span>
+            <span style={{color:'#fff',fontWeight:600}}>{v}</span>
+          </div>
+        ))}
       </div>
     </div>
+  );
+}
+
+/* ══ MIS CONTRIBUTION ══ */
+function MISContribution() {
+  const [investorId,  setInvestorId]  = useState('');
+  const [info,        setInfo]        = useState(null);
+  const [loading,     setLoading]     = useState(false);
+  const [payingId,    setPayingId]    = useState(null);
+
+  const getDetails = async () => {
+    if (!investorId.trim()) { toast.error('Enter Investor ID'); return; }
+    setLoading(true);
+    try {
+      const { data } = await api.get('/api/investment-plans/mis-contribution', {
+        params: { investor_id: investorId.trim() }
+      });
+      setInfo(data.data);
+    } catch(e) {
+      toast.error(e.response?.data?.message || 'Investor not found');
+      setInfo(null);
+    } finally { setLoading(false); }
+  };
+
+  const payInstallment = async (plan) => {
+    setPayingId(plan.id);
+    try {
+      const { data } = await api.post(`/api/investment-plans/pay-installment/${plan.id}`);
+      const r = data.data;
+      if (r.is_overdue) {
+        toast.success(
+          `✅ Payment successful!\n₹${r.base_amount.toLocaleString('en-IN')} + ₹${r.penalty} penalty = ₹${r.amount_paid.toLocaleString('en-IN')}\nGo to Approve Investment Tab.`,
+          { duration: 6000 }
+        );
+      } else {
+        toast.success(
+          `✅ Payment successful! ₹${r.amount_paid.toLocaleString('en-IN')}\nStatus: ${r.status_label}\nGo to Approve Investment Tab.`,
+          { duration: 5000 }
+        );
+      }
+      // Refresh
+      getDetails();
+    } catch(e) {
+      toast.error(e.response?.data?.message || 'Payment failed');
+    } finally { setPayingId(null); }
+  };
+
+  return (
+    <Panel title="MIS Contribution" subtitle="Enter Investor ID to view and pay installments">
+      {/* Enter Investor ID + Get Details */}
+      <div style={{display:'flex',gap:8,marginBottom:14,maxWidth:500}}>
+        <Input value={investorId} onChange={e=>{setInvestorId(e.target.value.trim());setInfo(null);}}
+          placeholder="Enter Investor ID (e.g. DFX-2026-000001)" style={{flex:1,fontFamily:'monospace'}} />
+        <button className="btn btn-primary" onClick={getDetails}>Get Details</button>
+      </div>
+
+      {loading && <Loading />}
+
+      {info && (
+        <>
+          {/* Investor info card */}
+          <div style={{background:'var(--bg-input)',borderRadius:'var(--border-radius-sm)',padding:'12px 16px',marginBottom:16,border:'1px solid var(--border)'}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'4px 16px',fontSize:'0.82rem'}}>
+              <div><span style={{color:'var(--text-muted)'}}>Investor ID: </span><strong>{info.investor.investor_id}</strong></div>
+              <div><span style={{color:'var(--text-muted)'}}>Name: </span><strong>{info.investor.investor_name}</strong></div>
+              <div><span style={{color:'var(--text-muted)'}}>Father: </span>{info.investor.father_name||'—'}</div>
+              <div><span style={{color:'var(--text-muted)'}}>Mobile: </span>{info.investor.mobile}</div>
+              <div><span style={{color:'var(--text-muted)'}}>Adviser: </span>{info.investor.adviser_id}</div>
+              <div><span style={{color:'var(--text-muted)'}}>Nominee: </span>{info.investor.nominee_name||'—'}</div>
+            </div>
+          </div>
+
+          {/* Plans with installment status */}
+          {info.plans.length === 0 ? (
+            <Alert type="warning">No approved investment plans found for this investor.</Alert>
+          ) : info.plans.map(plan => (
+            <div key={plan.id} style={{border:'1px solid var(--border)',borderRadius:'var(--border-radius-lg)',padding:16,marginBottom:12,background:'var(--bg-card)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
+                <div>
+                  <code style={{fontFamily:'monospace',fontSize:'0.78rem',color:'var(--success)',background:'var(--success-bg)',padding:'2px 8px',borderRadius:4}}>{plan.irn}</code>
+                  <span style={{marginLeft:10,fontWeight:700}}>{plan.plan_name}</span>
+                </div>
+                {/* Investment Status: 1 of 36 */}
+                <span style={{fontFamily:'monospace',fontWeight:700,fontSize:'0.85rem',background:'var(--bg-table-head)',padding:'4px 12px',borderRadius:6}}>
+                  {plan.status_label}
+                </span>
+              </div>
+
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'4px 16px',fontSize:'0.82rem',marginBottom:12}}>
+                <div><span style={{color:'var(--text-muted)'}}>Monthly: </span><strong>{fmt(plan.monthly_amount)}</strong></div>
+                <div><span style={{color:'var(--text-muted)'}}>Next Due: </span><strong style={{color:plan.is_overdue?'var(--danger)':'var(--text-primary)'}}>{plan.next_due_date||'—'}{plan.is_overdue?' ⚠️':''}</strong></div>
+                <div><span style={{color:'var(--text-muted)'}}>Maturity: </span><strong style={{color:'var(--success)'}}>{fmt(plan.total_maturity_amount)}</strong></div>
+              </div>
+
+              {/* Payment amount box — with or without penalty */}
+              <div style={{background:plan.is_overdue?'var(--danger-bg)':'var(--success-bg)',border:`1px solid ${plan.is_overdue?'var(--danger)':'var(--success)'}`,borderRadius:'var(--border-radius-sm)',padding:'12px 14px',marginBottom:12}}>
+                {plan.is_overdue ? (
+                  <>
+                    <div style={{fontWeight:700,color:'var(--danger)',marginBottom:4}}>⚠️ Overdue — Penalty Applies</div>
+                    <div style={{fontSize:'0.85rem'}}>
+                      Base Amount: <strong>{fmt(plan.base_amount)}</strong> + Penalty: <strong>₹{plan.penalty_amount}</strong> = <strong style={{fontSize:'1rem',color:'var(--danger)'}}>{fmt(plan.payable_amount)}</strong> Total
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{fontWeight:700,color:'var(--success)',marginBottom:4}}>✅ On Time</div>
+                    <div style={{fontSize:'0.85rem'}}>Amount: <strong style={{fontSize:'1rem'}}>{fmt(plan.payable_amount)}</strong></div>
+                  </>
+                )}
+              </div>
+
+              <button className="btn btn-primary" style={{width:'100%'}}
+                onClick={() => payInstallment(plan)}
+                disabled={payingId === plan.id || plan.installments_paid >= plan.total_installments}>
+                {payingId === plan.id ? 'Processing...' :
+                 plan.installments_paid >= plan.total_installments ? '✅ All Paid' :
+                 `Continue Investment — Pay ${fmt(plan.payable_amount)}`}
+              </button>
+            </div>
+          ))}
+        </>
+      )}
+    </Panel>
+  );
+}
+
+/* ══ APPROVE INVESTMENT ══ */
+function ApproveInvestment() {
+  const [data,    setData]    = useState({ items:[] });
+  const [loading, setLoading] = useState(true);
+  const [acting,  setActing]  = useState(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    investmentService.list({ status:'Pending' })
+      .then(r => setData(r.data.data || {}))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const act = async (plan, action) => {
+    setActing(plan.id);
+    try {
+      await investmentService.approve(plan.id, action);
+      if (action === 'approve') {
+        toast.success(`✅ Investment approved! Investment ID: ${plan.irn}`, { duration: 6000 });
+        setTimeout(() => toast(`Investment ID: ${plan.irn}`, {icon:'🎉', duration:8000}), 500);
+      } else {
+        toast.success(`❌ Investment deleted: ${plan.irn}`);
+      }
+      load();
+    } catch(e) {
+      toast.error(e.response?.data?.message || 'Action failed');
+    } finally { setActing(null); }
+  };
+
+  return (
+    <Panel title="Approve Investment" subtitle="Click Approve to generate Investment ID and display in Toaster">
+      {loading ? <Loading /> : (
+        <table className="data-table">
+          <thead>
+            <tr><th>#</th><th>IRN</th><th>Investor ID</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Maturity</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {(data.items||[]).map((p,i) => (
+              <tr key={p.id}>
+                <td>{i+1}</td>
+                <td><code style={{fontFamily:'monospace',fontSize:'0.75rem',color:'var(--success)'}}>{p.irn}</code></td>
+                <td><code style={{fontFamily:'monospace',fontSize:'0.75rem',color:'var(--primary)'}}>{p.investor_id}</code></td>
+                <td><strong>{p.plan_name}</strong></td>
+                <td><strong style={{color:'var(--primary)'}}>{fmt(p.monthly_amount)}</strong></td>
+                <td>{fmt(p.total_investment_amount)}</td>
+                <td><strong style={{color:'var(--success)'}}>{fmt(p.total_maturity_amount)}</strong></td>
+                <td>
+                  <div style={{display:'flex',gap:6}}>
+                    {/* Approve → Generate Investment ID → Display in Toaster */}
+                    <button className="btn btn-success btn-sm"
+                      disabled={acting===p.id}
+                      onClick={()=>act(p,'approve')}>
+                      {acting===p.id?'...':'✓ Approve'}
+                    </button>
+                    <button className="btn btn-danger btn-sm"
+                      disabled={acting===p.id}
+                      onClick={()=>act(p,'reject')}>
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {!(data.items||[]).length && (
+              <tr><td colSpan={8} style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
+                No pending investments. Create a plan first.
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      )}
+    </Panel>
   );
 }

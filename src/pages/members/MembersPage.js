@@ -1,149 +1,59 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
 import Panel from '../../components/Panel/Panel';
 import Field, { Input, Select } from '../../components/Field/Field';
 import Loading from '../../components/Loading/Loading';
 import Modal from '../../components/Modal/Modal';
 import Alert from '../../components/Alert/Alert';
-import InvestorCredentialsModal from '../../components/InvestorCredentialsModal/InvestorCredentialsModal';
 import api from '../../services/api';
 import { memberService } from '../../services/memberService';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-import { todayISOIST } from '../../utils/dateTime';
-import './MembersPage.css';
 
 const STEPS = ['Adviser Verify', 'Personal Info', 'Address & KYC', 'Nominee & Bank', 'Confirm'];
-const todayISO = todayISOIST;
-const INVESTOR_FEE = 10;
-
-const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim());
-
-const INDIAN_STATES = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat',
-  'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh',
-  'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab',
-  'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh',
-  'Uttarakhand', 'West Bengal', 'Andaman & Nicobar Islands', 'Chandigarh',
-  'Dadra & Nagar Haveli', 'Daman & Diu', 'Delhi', 'Jammu & Kashmir', 'Ladakh',
-  'Lakshadweep', 'Puducherry',
-];
-
-const NOMINEE_RELATIONS = ['Son', 'Daughter', 'Spouse', 'Father', 'Mother', 'Brother', 'Sister', 'Other'];
-
-const getRegistrationStepErrors = (stepNum, form) => {
-  const e = {};
-  if (stepNum === 1) {
-    if (!form.full_name?.trim()) e.full_name = 'Full Name is required';
-    if (!form.father_spouse_name?.trim()) e.father_spouse_name = 'Father / Spouse Name is required';
-    if (!form.date_of_birth) e.date_of_birth = 'Date of Birth is required';
-    if (!form.email?.trim()) e.email = 'Email is required';
-    else if (!isValidEmail(form.email)) e.email = 'Enter a valid email address';
-    if (!form.mobile || form.mobile.length !== 10) e.mobile = 'Valid 10-digit Mobile Number is required';
-  }
-  if (stepNum === 2) {
-    if (!form.corr_address?.trim()) e.corr_address = 'Address is required';
-    if (!form.corr_city?.trim()) e.corr_city = 'City is required';
-    if (!form.corr_state?.trim()) e.corr_state = 'State is required';
-    if (!form.corr_pincode || form.corr_pincode.length !== 6) e.corr_pincode = 'Valid 6-digit Pincode is required';
-    if (!form.aadhar_number || form.aadhar_number.length !== 12) e.aadhar_number = 'Valid 12-digit Aadhar Number is required';
-  }
-  if (stepNum === 3) {
-    if (!form.nominee_name?.trim()) e.nominee_name = 'Nominee Name is required';
-    if (!form.nominee_relationship) e.nominee_relationship = 'Relationship is required';
-    if (form.nominee_age === '' || form.nominee_age == null) e.nominee_age = 'Nominee Age is required';
-    else if (Number(form.nominee_age) < 0 || Number(form.nominee_age) > 120) e.nominee_age = 'Enter a valid nominee age (0–120)';
-  }
-  return e;
-};
-
-const validateRegistrationForm = (form) => {
-  for (const step of [1, 2, 3]) {
-    const errs = getRegistrationStepErrors(step, form);
-    const first = Object.values(errs)[0];
-    if (first) return { message: first, step, errors: errs };
-  }
-  return null;
-};
 
 export default function MembersPage() {
-  const { user } = useAuth();
-  const location = useLocation();
-  const isAdviser = user?.role === 'advisor' || user?.role === 'adviser';
-  const [view, setView] = useState('list');
-  const [pendingCount, setPendingCount] = useState(0);
-
-  useEffect(() => {
-    if (location.pathname.endsWith('/new')) setView('create');
-  }, [location.pathname]);
-
-  const refreshPending = useCallback(() => {
-    if (isAdviser) return;
-    api.get('/api/registration/pending').then(r => {
-      setPendingCount(r.data.data?.items?.length || 0);
-    }).catch(() => {});
-  }, [isAdviser]);
-
-  useEffect(() => { refreshPending(); }, [refreshPending]);
-
+  const [view, setView] = useState('list'); // 'list' | 'create' | 'approved'
   return (
     <div className="page-enter">
       <div className="page-header">
-        <div>
-          <h1>{isAdviser ? 'My Investors' : 'Investor Management'}</h1>
-          <p className="text-muted">
-            {isAdviser
-              ? 'Investors registered under your adviser code only'
-              : 'Manage investor registrations and approvals'}
-          </p>
-        </div>
-        <div className="page-actions">
-          <button className={`btn ${view==='list'?'btn-primary':'btn-outline'}`} onClick={()=>setView('list')}>
-            {isAdviser ? 'My Investors' : 'List Investors'}
-          </button>
-          {!isAdviser && (
-            <>
-              <button className={`btn ${view==='create'?'btn-primary':'btn-outline'}`} onClick={()=>setView('create')}>+ New Registration</button>
-              <button className={`btn ${view==='approved'?'btn-primary':'btn-outline'}`} onClick={()=>setView('approved')}>
-                Approved Investor
-                {pendingCount > 0 && <span className="badge-count">{pendingCount}</span>}
-              </button>
-            </>
-          )}
+        <div><h1>Investor Management</h1><p className="text-muted">Manage investor registrations and approvals</p></div>
+        <div style={{display:'flex',gap:8}}>
+          <button className={`btn ${view==='list'    ?'btn-primary':'btn-outline'}`} onClick={()=>setView('list')}>List Investors</button>
+          <button className={`btn ${view==='create'  ?'btn-primary':'btn-outline'}`} onClick={()=>setView('create')}>+ New Registration</button>
+          <button className={`btn ${view==='approved'?'btn-primary':'btn-outline'}`} onClick={()=>setView('approved')}>Approved Investor</button>
         </div>
       </div>
-
-      {view==='list'     && <ListInvestors />}
-      {view==='create'   && <NewRegistration onDone={()=>{ setView('approved'); refreshPending(); }} />}
-      {view==='approved' && <ApprovedInvestors onRefresh={refreshPending} />}
+      {view === 'list'     && <ListInvestors onView={() => setView('list')} />}
+      {view === 'create'   && <NewRegistration onDone={() => setView('approved')} />}
+      {view === 'approved' && <ApprovedInvestors />}
     </div>
   );
 }
 
 /* ══ LIST INVESTORS ══ */
 function ListInvestors() {
-  const { user }  = useAuth();
-  const isAdmin   = user?.role === 'superadmin';
-  const [data,    setData]    = useState({ items:[], total:0 });
+  const [data,    setData]    = useState({ items:[], total:0, pages:1 });
   const [loading, setLoading] = useState(true);
   const [search,  setSearch]  = useState('');
   const [dateFrom,setDateFrom]= useState('');
   const [dateTo,  setDateTo]  = useState('');
   const [page,    setPage]    = useState(1);
   const [detail,  setDetail]  = useState(null);
+  const { user }              = useAuth();
+  const isAdmin               = user?.role === 'superadmin';
 
-  const load = useCallback(() => {
+  const load = useCallback((pg=1) => {
     setLoading(true);
-    api.get('/api/registration/list', { params:{ page, date_from:dateFrom, date_to:dateTo } })
-      .then(r => setData(r.data.data||{}))
-      .catch(()=>toast.error('Failed to load investors'))
-      .finally(()=>setLoading(false));
-  }, [page, dateFrom, dateTo]);
+    api.get('/api/registration/list', { params:{ page:pg, date_from:dateFrom, date_to:dateTo } })
+      .then(r => setData(r.data.data || {}))
+      .catch(() => toast.error('Failed to load investors'))
+      .finally(() => setLoading(false));
+  }, [dateFrom, dateTo]);
 
-  useEffect(()=>{ load(); },[load]);
+  useEffect(() => { load(1); }, [load]);
 
-  // Search by Investor ID — local filter on loaded data
-  const filtered = search
+  // Search by Investor ID
+  const searchResult = search
     ? (data.items||[]).filter(m =>
         m.investor_id?.toLowerCase().includes(search.toLowerCase()) ||
         m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -151,32 +61,30 @@ function ListInvestors() {
     : (data.items||[]);
 
   const blacklist = async (m) => {
-    if (!isAdmin) { toast.error('Only Admin can blacklist investors'); return; }
+    if (!isAdmin) return toast.error('Only Admin can blacklist');
     if (!window.confirm(`Blacklist ${m.full_name}?`)) return;
     try {
       await api.post(`/api/registration/${m.id}/blacklist`);
       toast.success(`${m.full_name} blacklisted`);
-      load();
-    } catch(e) { toast.error(e.response?.data?.message||'Failed'); }
+      load(page);
+    } catch(e) { toast.error(e.response?.data?.message || 'Failed'); }
   };
 
   return (
     <>
-      <Panel title="List of Investors">
-        {/* Search Box — find by Investor ID */}
+      <Panel title="List of Investors" subtitle="Filtered by date of joining">
+        {/* Search box — Find by Investor ID */}
         <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
-          <input
-            style={{flex:'1 1 220px',padding:'8px 12px',border:'1px solid var(--border)',borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontSize:'0.85rem'}}
+          <input style={{flex:'1 1 200px',padding:'8px 12px',border:'1px solid var(--border)',borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontSize:'0.85rem'}}
             placeholder="🔍 Search by Investor ID / Name / Mobile"
-            value={search} onChange={e=>setSearch(e.target.value)}
-          />
+            value={search} onChange={e=>setSearch(e.target.value)} />
           <input type="date" style={{padding:'8px 10px',border:'1px solid var(--border)',borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontSize:'0.82rem'}}
             value={dateFrom} onChange={e=>setDateFrom(e.target.value)} />
           <span style={{alignSelf:'center',color:'var(--text-muted)',fontSize:'0.82rem'}}>to</span>
           <input type="date" style={{padding:'8px 10px',border:'1px solid var(--border)',borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontSize:'0.82rem'}}
             value={dateTo} onChange={e=>setDateTo(e.target.value)} />
-          <button className="btn btn-primary btn-sm" onClick={()=>load()}>Search</button>
-          {search && <button className="btn btn-outline btn-sm" onClick={()=>setSearch('')}>✕</button>}
+          <button className="btn btn-primary" onClick={()=>load(1)}>Search</button>
+          {search && <button className="btn btn-outline" onClick={()=>setSearch('')}>✕</button>}
         </div>
 
         {loading ? <Loading /> : (
@@ -184,12 +92,12 @@ function ListInvestors() {
             <thead>
               <tr>
                 <th>Sr. No</th><th>Investor ID</th><th>Investor Name</th>
-                <th>Father Name</th><th>Mobile Number</th><th>Date of Joining</th>
+                <th>Father Name</th><th>Mobile</th><th>Date of Joining</th>
                 <th>Adviser Name</th><th>Adviser ID</th><th>Status</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((m,i) => (
+              {searchResult.map((m,i) => (
                 <tr key={m.id}>
                   <td>{i+1}</td>
                   <td><code style={{fontFamily:'monospace',fontSize:'0.78rem',background:'var(--primary-glow)',color:'var(--primary)',padding:'2px 7px',borderRadius:4}}>{m.investor_id}</code></td>
@@ -198,18 +106,16 @@ function ListInvestors() {
                   <td>{m.mobile}</td>
                   <td style={{fontSize:'0.78rem'}}>{m.date_of_joining}</td>
                   <td style={{fontSize:'0.82rem'}}>{m.adviser_name||'—'}</td>
-                  <td><code style={{fontFamily:'monospace',fontSize:'0.75rem'}}>{m.adviser_code||'—'}</code></td>
+                  <td><code style={{fontFamily:'monospace',fontSize:'0.75rem'}}>{m.adviser_code}</code></td>
                   <td>
-                    {/* Status: Active / Not Active / Blacklist */}
                     <span style={{fontSize:'0.72rem',fontWeight:700,padding:'2px 9px',borderRadius:10,
-                      background:m.is_blacklisted?'var(--danger-bg)':m.status==='Active'?'var(--success-bg)':'var(--warning-bg)',
-                      color:     m.is_blacklisted?'var(--danger)'   :m.status==='Active'?'var(--success)'   :'var(--warning)'}}>
-                      {m.is_blacklisted?'Blacklisted':m.status||'Not Active'}
+                      background:m.status==='Active'?'var(--success-bg)':m.is_blacklisted?'var(--danger-bg)':'var(--warning-bg)',
+                      color:     m.status==='Active'?'var(--success)':  m.is_blacklisted?'var(--danger)':    'var(--warning)'}}>
+                      {m.is_blacklisted?'Blacklisted':m.status}
                     </span>
                   </td>
                   <td>
                     <div style={{display:'flex',gap:4}}>
-                      {/* More Details (Link) */}
                       <button className="btn btn-outline btn-sm" onClick={()=>setDetail(m)}>View</button>
                       {isAdmin && !m.is_blacklisted && (
                         <button className="btn btn-danger btn-sm" onClick={()=>blacklist(m)}>Blacklist</button>
@@ -218,61 +124,54 @@ function ListInvestors() {
                   </td>
                 </tr>
               ))}
-              {filtered.length===0 && (
+              {searchResult.length===0 && (
                 <tr><td colSpan={10} style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
-                  {search?`No results for "${search}"` : 'No investors found'}
+                  {search ? `No results for "${search}"` : 'No investors found'}
                 </td></tr>
               )}
             </tbody>
           </table>
         )}
-
-        {/* Status legend */}
-        <div style={{marginTop:12,padding:'8px 12px',background:'var(--bg-input)',borderRadius:'var(--border-radius-sm)',fontSize:'0.75rem',color:'var(--text-muted)'}}>
-          <strong>Status:</strong>&nbsp;
-          <span style={{color:'var(--success)'}}>Active</span> = has at least one plan &nbsp;|&nbsp;
-          <span style={{color:'var(--warning)'}}>Not Active</span> = no plan yet &nbsp;|&nbsp;
-          <span style={{color:'var(--danger)'}}>Blacklist</span> = Admin only · adviser can't create investors if blacklisted
-        </div>
       </Panel>
 
-      {/* More Details Modal → 1. All Details of Investor  2. List All Plan */}
+      {/* More Details Modal → All Details + List All Plan */}
       <Modal open={!!detail} onClose={()=>setDetail(null)} title="Investor Details" size="lg">
-        {detail && <InvestorDetailModal investor={detail} onClose={()=>setDetail(null)} />}
+        {detail && <InvestorDetail investor={detail} onClose={()=>setDetail(null)} />}
       </Modal>
     </>
   );
 }
 
 /* ══ INVESTOR DETAIL MODAL ══ */
-function InvestorDetailModal({ investor: m, onClose }) {
+function InvestorDetail({ investor: m, onClose }) {
   const [plans, setPlans] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const fmt = n => '\u20b9'+(n||0).toLocaleString('en-IN');
+  const [loadingPlans, setLoadingPlans] = useState(true);
 
-  useEffect(()=>{
+  useEffect(() => {
     api.get('/api/investment-plans/list', { params:{ investor_id: m.investor_id } })
-      .then(r => setPlans(r.data.data?.items||[]))
-      .catch(()=>{})
-      .finally(()=>setLoading(false));
-  },[m.investor_id]);
+      .then(r => setPlans(r.data.data?.items || []))
+      .catch(() => {})
+      .finally(() => setLoadingPlans(false));
+  }, [m.investor_id]);
+
+  const fmt = n => '\u20b9' + (n||0).toLocaleString('en-IN');
 
   return (
     <div>
       {/* 1. All Details of Investor */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px 16px',marginBottom:20}}>
         {[
-          ['Investor ID',    m.investor_id],  ['Full Name',       m.full_name],
-          ['Father Name',    m.father_spouse_name||'—'], ['Mobile', m.mobile],
-          ['Email',          m.email||'—'],   ['Date of Birth',   m.date_of_birth||'—'],
+          ['Investor ID',    m.investor_id], ['Full Name',      m.full_name],
+          ['Father Name',    m.father_spouse_name||'—'], ['Mobile',         m.mobile],
+          ['Email',          m.email||'—'], ['Date of Birth',  m.date_of_birth||'—'],
           ['Date of Joining',m.date_of_joining], ['City',          m.corr_city||'—'],
-          ['Aadhar',         m.aadhar_number?`XXXX-${m.aadhar_number.slice(-4)}`:'—'],
-          ['PAN',            m.pan_number||'—'], ['Adviser ID',    m.adviser_code||'—'],
-          ['Nominee',        m.nominee_name||'—'], ['Relation',    m.nominee_relationship||'—'],
-          ['Bank',           m.bank_name||'—'], ['A/C No.',       m.account_number||'—'],
-          ['IFSC',           m.ifsc_code||'—'], ['Member Type',   m.member_type||'Investor'],
-          ['Member Fees',    fmt(m.member_fees||10)], ['Status',   m.approval_status],
-        ].map(([k,v])=>(
+          ['State',          m.corr_state||'—'], ['Aadhar No.',    m.aadhar_number ? `XXXX-${m.aadhar_number.slice(-4)}` : '—'],
+          ['PAN No.',        m.pan_number||'—'], ['Adviser ID',    m.adviser_code],
+          ['Nominee Name',   m.nominee_name||'—'], ['Relation',    m.nominee_relationship||'—'],
+          ['Bank',           m.bank_name||'—'], ['Account No.',   m.account_number||'—'],
+          ['Member Type',    m.member_type||'Investor'], ['Member Fees', fmt(m.member_fees||650)],
+          ['Payment Mode',   m.payment_mode||'—'], ['Status',       m.status||m.approval_status],
+        ].map(([k,v]) => (
           <div key={k} style={{padding:'5px 0',borderBottom:'1px solid var(--border)'}}>
             <div style={{fontSize:'0.72rem',color:'var(--text-muted)'}}>{k}</div>
             <div style={{fontSize:'0.82rem',fontWeight:600}}>{v}</div>
@@ -281,22 +180,24 @@ function InvestorDetailModal({ investor: m, onClose }) {
       </div>
 
       {/* 2. List All Plan */}
-      <div style={{fontWeight:700,marginBottom:10,borderTop:'1px solid var(--border)',paddingTop:14}}>Investment Plans</div>
-      {loading ? <Loading /> : plans.length===0 ? (
+      <div style={{fontWeight:700,marginBottom:10,borderTop:'1px solid var(--border)',paddingTop:14}}>
+        Investment Plans
+      </div>
+      {loadingPlans ? <Loading /> : plans.length === 0 ? (
         <div style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:'0.85rem'}}>No plans yet</div>
       ) : (
         <table className="data-table">
-          <thead><tr><th>IRN</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Return of Investment</th><th>ROI</th><th>Status</th></tr></thead>
+          <thead><tr><th>IRN</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Maturity</th><th>ROI</th><th>Status</th></tr></thead>
           <tbody>
-            {plans.map(p=>(
+            {plans.map(p => (
               <tr key={p.id}>
                 <td><code style={{fontFamily:'monospace',fontSize:'0.75rem',color:'var(--success)'}}>{p.irn}</code></td>
                 <td><strong>{p.plan_name}</strong></td>
                 <td><strong style={{color:'var(--primary)'}}>{fmt(p.monthly_amount)}</strong></td>
                 <td>{fmt(p.total_investment_amount)}</td>
                 <td><strong style={{color:'var(--success)'}}>{fmt(p.total_maturity_amount)}</strong></td>
-                <td style={{color:'var(--primary)',fontWeight:700}}>{p.roi_display}</td>
-                <td><span style={{fontSize:'0.72rem',fontWeight:700,padding:'2px 9px',borderRadius:10,
+                <td>{p.roi_display}</td>
+                <td><span style={{fontSize:'0.72rem',fontWeight:700,padding:'2px 8px',borderRadius:10,
                   background:p.approval_status==='Approved'?'var(--success-bg)':'var(--warning-bg)',
                   color:p.approval_status==='Approved'?'var(--success)':'var(--warning)'}}>{p.approval_status}</span></td>
               </tr>
@@ -313,42 +214,42 @@ function InvestorDetailModal({ investor: m, onClose }) {
 
 /* ══ NEW INVESTOR REGISTRATION ══ */
 function NewRegistration({ onDone }) {
-  const { user }      = useAuth();
-  const [step,        setStep]        = useState(0);
-  const [advisers,    setAdvisers]    = useState([]);
-  const [adviserCode, setAdviserCode] = useState('');
-  const [adviser,     setAdviser]     = useState(null);
-  const [adviserErr,  setAdviserErr]  = useState('');
-  const [submitting,  setSubmitting]  = useState(false);
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [credModal,   setCredModal]   = useState(null);
+  const { user }       = useAuth();
+  const [step,         setStep]        = useState(0);
+  const [advisers,     setAdvisers]    = useState([]);
+  const [adviserCode,  setAdviserCode] = useState('');
+  const [adviser,      setAdviser]     = useState(null);
+  const [adviserErr,   setAdviserErr]  = useState('');
+  const [submitting,   setSubmitting]  = useState(false);
   const [form, setForm] = useState({
-    salutation:'', full_name:'', father_spouse_name:'', date_of_birth:'', gender:'Male',
-    marital_status:'Single', nationality:'Indian', mobile:'', phone_office:'', email:'',
+    salutation:'', full_name:'', father_spouse_name:'', date_of_birth:'', age:'',
+    gender:'Male', marital_status:'Single', nationality:'Indian',
+    mobile:'', phone_office:'', email:'', is_senior_citizen:false,
     corr_address:'', corr_city:'', corr_state:'', corr_pincode:'',
     same_as_corr:false, perm_address:'', perm_city:'', perm_state:'', perm_pincode:'',
-    aadhar_number:'', pan_number:'', voter_id:'', driving_license:'',
+    aadhar_number:'', pan_number:'', voter_id:'', driving_license:'', verification_doc_type:'',
     nominee_name:'', nominee_age:'', nominee_relationship:'', nominee_address:'',
     bank_name:'', account_number:'', ifsc_code:'', upi_id:'',
-    occupation:'', annual_income:'',
-    member_type:'Investor', member_fees:INVESTOR_FEE, promoter_fees:0, payment_mode:'Cash',
-    date_of_joining: todayISO(),
+    occupation:'', annual_income:'', family_income:'',
+    member_type:'Investor', member_fees:650, promoter_fees:0, payment_mode:'Cash',
+    date_of_joining: new Date().toISOString().split('T')[0],
   });
 
-  useEffect(()=>{
-    api.get('/api/advisers/').then(r=>setAdvisers(r.data.data||[])).catch(()=>{});
-  },[]);
+  useEffect(() => {
+    api.get('/api/advisers/').then(r => setAdvisers(r.data.data || [])).catch(()=>{});
+  }, []);
 
-  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const set = (k,v) => setForm(f => ({...f,[k]:v}));
 
   const verifyAdviser = async () => {
     setAdviserErr('');
     if (!adviserCode.trim()) { setAdviserErr('Enter Adviser ID'); return; }
+    if (adviserCode.toUpperCase().includes('DFX-IRN')) { setAdviserErr('That is an IRN, not an Adviser Code'); return; }
     try {
       const { data } = await memberService.checkAdviser(adviserCode.trim());
       setAdviser(data.data);
     } catch(e) {
-      setAdviserErr(e.response?.data?.message||'Adviser not found or blacklisted');
+      setAdviserErr(e.response?.data?.message || 'Adviser not found');
     }
   };
 
@@ -363,82 +264,53 @@ function NewRegistration({ onDone }) {
   };
 
   const submit = async () => {
-    const validation = validateRegistrationForm(form);
-    if (validation) {
-      setFieldErrors(validation.errors);
-      setStep(validation.step);
-      toast.error(validation.message);
-      return;
+    if (!form.full_name || !form.mobile || !form.aadhar_number) {
+      toast.error('Full Name, Mobile, Aadhar required'); return;
     }
-    setFieldErrors({});
     setSubmitting(true);
     try {
-      const { data } = await memberService.register({
-        ...form,
-        adviser_code: adviser?.adviser_code || adviserCode.trim(),
-        member_type: 'Investor',
-        member_fees: INVESTOR_FEE,
-        date_of_joining: todayISO(),
-      });
-      const investorId = data.data?.investor_id || '';
-      toast.success(
-        `Registration submitted! ID: ${investorId}. Approve from the Approved Investor tab or Approvals queue.`,
-        { duration: 5000 }
-      );
+      await memberService.register({ ...form, adviser_code: adviserCode.trim() });
+      toast.success('Registration submitted! Go to Approved Investor tab to approve.');
       onDone();
     } catch(e) {
-      toast.error(e.response?.data?.message||'Registration failed');
+      toast.error(e.response?.data?.message || 'Registration failed');
     } finally { setSubmitting(false); }
   };
 
   return (
-    <>
     <Panel title="New Investor Registration">
-      <Alert type="info" style={{ marginBottom: 16 }}>
-        Required fields (<span style={{ color: 'var(--danger)' }}>*</span>): Father / Spouse Name, Date of Birth,
-        Email, Address, City, State, Pincode, Nominee Name, Relationship, and Nominee Age.
-      </Alert>
       {/* Step indicators */}
       <div style={{display:'flex',alignItems:'center',marginBottom:24}}>
-        {STEPS.map((s,i)=>(
+        {STEPS.map((s,i) => (
           <React.Fragment key={i}>
-            <div style={{display:'flex',flexDirection:'column',alignItems:'center',cursor:i<step?'pointer':'default'}} onClick={()=>i<step&&setStep(i)}>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',cursor:'pointer'}} onClick={()=>i<step&&setStep(i)}>
               <div style={{width:32,height:32,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:'0.85rem',
                 background:i===step?'var(--primary)':i<step?'var(--success)':'var(--bg-table-head)',
                 color:i<=step?'#fff':'var(--text-muted)',border:`2px solid ${i===step?'var(--primary)':i<step?'var(--success)':'var(--border)'}`}}>
-                {i<step?'✓':i+1}
+                {i<step ? '✓' : i+1}
               </div>
-              <div style={{fontSize:'0.65rem',marginTop:4,color:i===step?'var(--primary)':'var(--text-muted)',fontWeight:i===step?700:400,whiteSpace:'nowrap'}}>{s}</div>
+              <div style={{fontSize:'0.65rem',marginTop:4,color:i===step?'var(--primary)':'var(--text-muted)',fontWeight:i===step?700:400}}>{s}</div>
             </div>
-            {i<STEPS.length-1&&<div style={{flex:1,height:2,background:i<step?'var(--success)':'var(--border)',margin:'0 4px',marginBottom:16}}/>}
+            {i<STEPS.length-1 && <div style={{flex:1,height:2,background:i<step?'var(--success)':'var(--border)',margin:'0 4px',marginBottom:16}}/>}
           </React.Fragment>
         ))}
       </div>
 
       {/* ── STEP 0: Adviser Verify ── */}
-      {step===0 && (
+      {step === 0 && (
         <div>
-          <div style={{fontWeight:700,marginBottom:6}}>Enter Adviser ID</div>
-          <p style={{color:'var(--text-muted)',fontSize:'0.82rem',marginBottom:14}}>
-            Every investor must be registered under an active Adviser ID.
-          </p>
+          <div style={{fontWeight:700,marginBottom:6}}>Verify Adviser ID</div>
+          <p style={{color:'var(--text-muted)',fontSize:'0.82rem',marginBottom:14}}>Every new investor must be registered under an active Adviser ID.</p>
 
-          {/* Note: investor create fee is ₹10 deducted from branch panel limit */}
-          <Alert type="info" style={{marginBottom:14}}>
-            <strong>Note:</strong> Investor registration fee is ₹10 — deducted from branch limit when the registration is <strong>approved</strong>, not at submit time.
-          </Alert>
-
-          {advisers.length>0 && (
+          {advisers.length > 0 && (
             <div style={{marginBottom:12}}>
               <div style={{fontSize:'0.78rem',fontWeight:600,color:'var(--text-secondary)',marginBottom:6}}>Available Adviser Codes — click to select:</div>
               <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                {advisers.map(a=>(
+                {advisers.map(a => (
                   <button key={a.adviser_code}
-                    style={{padding:'4px 12px',fontSize:'0.75rem',fontFamily:'monospace',cursor:'pointer',
-                      background:adviserCode===a.adviser_code?'var(--primary)':'var(--bg-input)',
-                      color:adviserCode===a.adviser_code?'#fff':'var(--text-primary)',
-                      border:'1px solid var(--border)',borderRadius:20}}
-                    onClick={()=>{setAdviserCode(a.adviser_code);setAdviserErr('');setAdviser(null);}}>
+                    style={{padding:'4px 12px',fontSize:'0.75rem',background:adviserCode===a.adviser_code?'var(--primary)':'var(--bg-input)',
+                      color:adviserCode===a.adviser_code?'#fff':'var(--text-primary)',border:'1px solid var(--border)',borderRadius:20,cursor:'pointer',fontFamily:'monospace'}}
+                    onClick={() => { setAdviserCode(a.adviser_code); setAdviserErr(''); setAdviser(null); }}>
                     {a.adviser_code} — {a.full_name} ({a.rank_name})
                   </button>
                 ))}
@@ -447,12 +319,9 @@ function NewRegistration({ onDone }) {
           )}
 
           <div style={{display:'flex',gap:8,marginBottom:8}}>
-            <input
-              style={{flex:1,padding:'10px 12px',border:`1.5px solid ${adviserErr?'var(--danger)':'var(--border)'}`,borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontFamily:'monospace',fontSize:'0.9rem'}}
-              placeholder="Enter Adviser Code *"
-              value={adviserCode}
-              onChange={e=>{setAdviserCode(e.target.value.trim());setAdviserErr('');setAdviser(null);}}
-            />
+            <input style={{flex:1,padding:'10px 12px',border:`1.5px solid ${adviserErr?'var(--danger)':'var(--border)'}`,borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontFamily:'monospace',fontSize:'0.9rem'}}
+              placeholder="Enter Adviser Code *" value={adviserCode}
+              onChange={e=>{setAdviserCode(e.target.value.trim());setAdviserErr('');setAdviser(null);}} />
             <button className="btn btn-primary" onClick={verifyAdviser}>Verify →</button>
           </div>
           {adviserErr && <div style={{color:'var(--danger)',fontSize:'0.8rem',marginBottom:8}}>{adviserErr}</div>}
@@ -472,10 +341,16 @@ function NewRegistration({ onDone }) {
 
           <div style={{display:'flex',gap:16,marginTop:12,flexWrap:'wrap'}}>
             <Field label="Member Type">
-              <Input value="Investor" readOnly disabled />
+              <Select value={form.member_type} onChange={e=>set('member_type',e.target.value)}>
+                <option value="Investor">Investor</option>
+                <option value="Promoter Member">Promoter Member</option>
+              </Select>
             </Field>
-            <Field label="Member Fees (₹)">
-              <Input type="number" value={INVESTOR_FEE} readOnly disabled />
+            <Field label="Member Fees">
+              <Input type="number" value={form.member_fees} onChange={e=>set('member_fees',parseFloat(e.target.value))} />
+            </Field>
+            <Field label="Promoter Fees">
+              <Input type="number" value={form.promoter_fees} onChange={e=>set('promoter_fees',parseFloat(e.target.value))} />
             </Field>
             <Field label="Payment Mode">
               <Select value={form.payment_mode} onChange={e=>set('payment_mode',e.target.value)}>
@@ -483,59 +358,63 @@ function NewRegistration({ onDone }) {
               </Select>
             </Field>
             <Field label="Date of Registration">
-              <Input type="date" value={todayISO()} readOnly disabled />
+              <Input type="date" value={form.date_of_joining} onChange={e=>set('date_of_joining',e.target.value)} />
             </Field>
+          </div>
+
+          <div style={{marginTop:14,display:'flex',justifyContent:'flex-end'}}>
+            {adviser
+              ? <button className="btn btn-primary" onClick={()=>setStep(1)}>Next → Personal Info</button>
+              : <button className="btn btn-primary" onClick={verifyAdviser} disabled={!adviserCode}>Verify & Next →</button>
+            }
           </div>
         </div>
       )}
 
       {/* ── STEP 1: Personal Info ── */}
-      {step===1 && (
+      {step === 1 && (
         <div>
           <div className="reg-form-row">
             <Field label="Salutation"><Select value={form.salutation} onChange={e=>set('salutation',e.target.value)}><option value="">—</option>{['Mr.','Mrs.','Ms.','Dr.'].map(s=><option key={s}>{s}</option>)}</Select></Field>
-            <Field label="Full Name" required error={fieldErrors.full_name}><Input required value={form.full_name} onChange={e=>set('full_name',e.target.value)} placeholder="As per Aadhar" /></Field>
+            <Field label="Full Name *"><Input value={form.full_name} onChange={e=>set('full_name',e.target.value)} placeholder="As per Aadhar" /></Field>
           </div>
           <div className="reg-form-row">
-            <Field label="Father / Spouse Name" required error={fieldErrors.father_spouse_name}><Input required value={form.father_spouse_name} onChange={e=>set('father_spouse_name',e.target.value)} placeholder="Father's or Spouse's full name" /></Field>
-            <Field label="Mobile Number" required error={fieldErrors.mobile}><Input required value={form.mobile} onChange={e=>set('mobile',e.target.value.replace(/\D/g,'').slice(0,10))} maxLength={10} placeholder="10-digit" /></Field>
+            <Field label="Father / Spouse Name"><Input value={form.father_spouse_name} onChange={e=>set('father_spouse_name',e.target.value)} /></Field>
+            <Field label="Mobile Number *"><Input value={form.mobile} onChange={e=>set('mobile',e.target.value.replace(/\D/g,'').slice(0,10))} maxLength={10} placeholder="10-digit" /></Field>
           </div>
           <div className="reg-form-row">
-            <Field label="Date of Birth" required error={fieldErrors.date_of_birth}><Input required type="date" value={form.date_of_birth} onChange={e=>set('date_of_birth',e.target.value)} /></Field>
+            <Field label="Date of Birth"><Input type="date" value={form.date_of_birth} onChange={e=>set('date_of_birth',e.target.value)} /></Field>
             <Field label="Gender"><Select value={form.gender} onChange={e=>set('gender',e.target.value)}>{['Male','Female','Other'].map(g=><option key={g}>{g}</option>)}</Select></Field>
           </div>
           <div className="reg-form-row">
             <Field label="Marital Status"><Select value={form.marital_status} onChange={e=>set('marital_status',e.target.value)}>{['Single','Married','Divorced','Widowed'].map(s=><option key={s}>{s}</option>)}</Select></Field>
-            <Field label="Email" required error={fieldErrors.email}><Input required type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="email@example.com" /></Field>
+            <Field label="Email"><Input type="email" value={form.email} onChange={e=>set('email',e.target.value)} /></Field>
           </div>
         </div>
       )}
 
       {/* ── STEP 2: Address & KYC ── */}
-      {step===2 && (
+      {step === 2 && (
         <div>
           <div style={{fontWeight:700,marginBottom:10}}>Correspondence Address</div>
           <div className="reg-form-row">
-            <Field label="Address" required error={fieldErrors.corr_address}><Input required value={form.corr_address} onChange={e=>set('corr_address',e.target.value)} placeholder="House No., Street, Area" /></Field>
-            <Field label="City" required error={fieldErrors.corr_city}><Input required value={form.corr_city} onChange={e=>set('corr_city',e.target.value)} placeholder="City" /></Field>
+            <Field label="Address"><Input value={form.corr_address} onChange={e=>set('corr_address',e.target.value)} /></Field>
+            <Field label="City"><Input value={form.corr_city} onChange={e=>set('corr_city',e.target.value)} /></Field>
           </div>
           <div className="reg-form-row">
-            <Field label="State" required error={fieldErrors.corr_state}>
-              <Select required value={form.corr_state} onChange={e=>set('corr_state',e.target.value)}>
-                <option value="">— Select State —</option>
-                {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-              </Select>
-            </Field>
-            <Field label="Pincode" required error={fieldErrors.corr_pincode}><Input required value={form.corr_pincode} onChange={e=>set('corr_pincode',e.target.value.replace(/\D/g,'').slice(0,6))} maxLength={6} placeholder="6-digit" /></Field>
+            <Field label="State"><Input value={form.corr_state} onChange={e=>set('corr_state',e.target.value)} /></Field>
+            <Field label="Pincode"><Input value={form.corr_pincode} onChange={e=>set('corr_pincode',e.target.value)} maxLength={6} /></Field>
           </div>
-          <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:'0.85rem',marginBottom:12}}>
-            <input type="checkbox" checked={form.same_as_corr} onChange={e=>handleSameAddress(e.target.checked)} />
-            Same as Correspondence Address
-          </label>
+          <div style={{marginBottom:12}}>
+            <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:'0.85rem'}}>
+              <input type="checkbox" checked={form.same_as_corr} onChange={e=>handleSameAddress(e.target.checked)} />
+              Same as Correspondence Address
+            </label>
+          </div>
           <div style={{fontWeight:700,marginBottom:10}}>KYC Documents</div>
           <div className="reg-form-row">
-            <Field label="Aadhar Number" required error={fieldErrors.aadhar_number}><Input required value={form.aadhar_number} onChange={e=>set('aadhar_number',e.target.value.replace(/\D/g,'').slice(0,12))} maxLength={12} placeholder="12-digit" /></Field>
-            <Field label="PAN Number"><Input value={form.pan_number} onChange={e=>set('pan_number',e.target.value.toUpperCase())} /></Field>
+            <Field label="Aadhar Number *"><Input value={form.aadhar_number} onChange={e=>set('aadhar_number',e.target.value.replace(/\D/g,'').slice(0,12))} maxLength={12} placeholder="12-digit" /></Field>
+            <Field label="PAN Number"><Input value={form.pan_number} onChange={e=>set('pan_number',e.target.value.toUpperCase())} placeholder="ABCDE1234F" /></Field>
           </div>
           <div className="reg-form-row">
             <Field label="Voter ID"><Input value={form.voter_id} onChange={e=>set('voter_id',e.target.value)} /></Field>
@@ -545,21 +424,16 @@ function NewRegistration({ onDone }) {
       )}
 
       {/* ── STEP 3: Nominee & Bank ── */}
-      {step===3 && (
+      {step === 3 && (
         <div>
           <div style={{fontWeight:700,marginBottom:10}}>Nominee Details</div>
           <div className="reg-form-row">
-            <Field label="Nominee Name" required error={fieldErrors.nominee_name}><Input required value={form.nominee_name} onChange={e=>set('nominee_name',e.target.value)} placeholder="Full name" /></Field>
-            <Field label="Relationship" required error={fieldErrors.nominee_relationship}>
-              <Select required value={form.nominee_relationship} onChange={e=>set('nominee_relationship',e.target.value)}>
-                <option value="">— Select —</option>
-                {NOMINEE_RELATIONS.map(r => <option key={r} value={r}>{r}</option>)}
-              </Select>
-            </Field>
+            <Field label="Nominee Name"><Input value={form.nominee_name} onChange={e=>set('nominee_name',e.target.value)} /></Field>
+            <Field label="Relationship"><Select value={form.nominee_relationship} onChange={e=>set('nominee_relationship',e.target.value)}><option value="">—</option>{['Son','Daughter','Spouse','Father','Mother','Brother','Sister','Other'].map(r=><option key={r}>{r}</option>)}</Select></Field>
           </div>
-          <Field label="Nominee Age" required error={fieldErrors.nominee_age} style={{maxWidth:200}}>
-            <Input required type="number" min="0" max="120" value={form.nominee_age} onChange={e=>set('nominee_age',e.target.value)} placeholder="Age" />
-          </Field>
+          <div className="reg-form-row">
+            <Field label="Nominee Age"><Input type="number" value={form.nominee_age} onChange={e=>set('nominee_age',e.target.value)} /></Field>
+          </div>
           <div style={{fontWeight:700,margin:'14px 0 10px'}}>Bank Details</div>
           <div className="reg-form-row">
             <Field label="Bank Name"><Input value={form.bank_name} onChange={e=>set('bank_name',e.target.value)} /></Field>
@@ -577,33 +451,23 @@ function NewRegistration({ onDone }) {
       )}
 
       {/* ── STEP 4: Confirm ── */}
-      {step===4 && (
+      {step === 4 && (
         <div>
           <Alert type="info" style={{marginBottom:14}}>
-            Review all details below. After submission the investor stays <strong>Pending</strong> until you approve them in the <strong>Approved Investor</strong> tab or <strong>Approvals</strong> queue.
+            Review all details below. After submission, go to <strong>Approved Investor</strong> tab to approve.
           </Alert>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px 20px',fontSize:'0.85rem'}}>
             {[
-              ['Adviser Code',   adviser?.adviser_code || adviserCode],
-              ['Full Name',      form.full_name],
-              ['Father / Spouse', form.father_spouse_name],
-              ['Date of Birth',  form.date_of_birth],
-              ['Email',          form.email],
-              ['Mobile',         form.mobile],
-              ['Gender',         form.gender],
-              ['Address',        form.corr_address],
-              ['City',           form.corr_city],
-              ['State',          form.corr_state],
-              ['Pincode',        form.corr_pincode],
-              ['Aadhar',         form.aadhar_number ? `XXXX-${form.aadhar_number.slice(-4)}` : '—'],
-              ['PAN',            form.pan_number || '—'],
-              ['Nominee Name',   form.nominee_name],
-              ['Nominee Age',    form.nominee_age],
-              ['Relationship',   form.nominee_relationship],
-              ['Bank',           form.bank_name || '—'],
-              ['Member Fees',    `\u20b9${INVESTOR_FEE}`],
-              ['Payment Mode',   form.payment_mode],
-            ].map(([k,v])=>(
+              ['Adviser Code', adviserCode], ['Full Name', form.full_name],
+              ['Father Name', form.father_spouse_name||'—'], ['Mobile', form.mobile],
+              ['Date of Birth', form.date_of_birth||'—'], ['Gender', form.gender],
+              ['Aadhar Number', form.aadhar_number ? `XXXX-${form.aadhar_number.slice(-4)}` : '—'],
+              ['PAN Number', form.pan_number||'—'],
+              ['City', form.corr_city||'—'], ['State', form.corr_state||'—'],
+              ['Nominee', form.nominee_name||'—'], ['Relation', form.nominee_relationship||'—'],
+              ['Bank', form.bank_name||'—'], ['Member Type', form.member_type],
+              ['Member Fees', `\u20b9${form.member_fees}`], ['Payment Mode', form.payment_mode],
+            ].map(([k,v]) => (
               <div key={k} style={{padding:'5px 0',borderBottom:'1px solid var(--border)'}}>
                 <span style={{color:'var(--text-muted)',fontSize:'0.72rem'}}>{k}</span>
                 <div style={{fontWeight:600}}>{v}</div>
@@ -614,29 +478,23 @@ function NewRegistration({ onDone }) {
       )}
 
       {/* Navigation */}
-      <div style={{marginTop:20,display:'flex',justifyContent:'space-between'}}>
+      <div className="reg-nav" style={{marginTop:20,display:'flex',justifyContent:'space-between'}}>
         <div>
-          {step>0 && <button className="btn btn-outline" onClick={()=>setStep(s=>s-1)}>← Back</button>}
+          {step > 0 && <button className="btn btn-outline" onClick={()=>setStep(s=>s-1)}>← Back</button>}
         </div>
         <div style={{display:'flex',gap:8}}>
-          {step===0 && (
-            adviser
-              ? <button className="btn btn-primary" onClick={()=>setStep(1)}>Next → Personal Info</button>
-              : <button className="btn btn-primary" onClick={verifyAdviser} disabled={!adviserCode}>Verify & Next →</button>
+          {step === 0 && (adviser
+            ? <button className="btn btn-primary" onClick={()=>setStep(1)}>Next → Personal Info</button>
+            : <button className="btn btn-primary" onClick={verifyAdviser} disabled={!adviserCode}>Verify & Next →</button>
           )}
-          {step>0 && step<STEPS.length-1 && (
+          {step > 0 && step < STEPS.length-1 && (
             <button className="btn btn-primary" onClick={()=>{
-              const errs = getRegistrationStepErrors(step, form);
-              if (Object.keys(errs).length) {
-                setFieldErrors(errs);
-                toast.error(Object.values(errs)[0]);
-                return;
-              }
-              setFieldErrors({});
+              if(step===1&&(!form.full_name||!form.mobile)){toast.error('Fill Name and Mobile');return;}
+              if(step===2&&!form.aadhar_number){toast.error('Fill Aadhar Number');return;}
               setStep(s=>s+1);
             }}>Next →</button>
           )}
-          {step===STEPS.length-1 && (
+          {step === STEPS.length-1 && (
             <button className="btn btn-success btn-lg" onClick={submit} disabled={submitting}>
               {submitting?'Submitting...':'✓ Submit Registration'}
             </button>
@@ -644,52 +502,46 @@ function NewRegistration({ onDone }) {
         </div>
       </div>
     </Panel>
-    <InvestorCredentialsModal creds={credModal} onClose={() => setCredModal(null)} />
-  </>
   );
 }
 
 /* ══ APPROVED INVESTORS ══ */
-function ApprovedInvestors({ onRefresh }) {
+function ApprovedInvestors() {
   const [pending,  setPending]  = useState([]);
   const [approved, setApproved] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [credModal,setCredModal]= useState(null);
+  const { user }               = useAuth();
 
-  const load = useCallback(()=>{
+  const load = useCallback(() => {
     setLoading(true);
     Promise.allSettled([
       api.get('/api/registration/pending'),
       api.get('/api/registration/list'),
-    ]).then(([p,a])=>{
+    ]).then(([p,a]) => {
       if(p.status==='fulfilled') setPending(p.value.data.data?.items||[]);
       if(a.status==='fulfilled') setApproved(a.value.data.data?.items||[]);
     }).finally(()=>setLoading(false));
-  },[]);
+  }, []);
 
-  useEffect(()=>{ load(); },[load]);
+  useEffect(()=>{load();},[load]);
 
-  // Click the Approve Investor → Generate Username & Password → Display in Toaster
+  // Flowchart: Click Approve → Generate Username & Password → Display in Toaster
   const approve = async (member, action) => {
     try {
-      const { data } = await api.post(`/api/registration/approve/${member.id}`,{ action });
-      if (action==='approve') {
+      const { data } = await api.post(`/api/registration/approve/${member.id}`, { action });
+      if (action === 'approve') {
+        toast.success(`✅ Approved: ${member.full_name}`);
         const creds = data.data?.credentials;
-        if (creds?.username) {
-          setCredModal({
-            ...creds,
-            full_name: member.full_name,
-            investor_id: member.investor_id,
-          });
-        } else {
-          toast.success(`✅ Approved: ${member.full_name}`);
+        if (creds) {
+          setTimeout(() => setCredModal(creds), 300);
         }
       } else {
-        toast.success(`Registration rejected`);
+        toast.success(`❌ Rejected: ${member.full_name}`);
       }
-      load(); onRefresh?.();
+      load();
     } catch(e) {
-      toast.error(e.response?.data?.message||'Action failed');
+      toast.error(e.response?.data?.message || 'Action failed');
     }
   };
 
@@ -698,15 +550,15 @@ function ApprovedInvestors({ onRefresh }) {
   return (
     <>
       {/* Pending Approval */}
-      {pending.length>0 && (
+      {pending.length > 0 && (
         <Panel title={`Pending Approval (${pending.length})`} className="mb-3"
-          subtitle="Click Approve → login username is the Investor ID (e.g. DEFIN202634) with a generated password">
+          subtitle="Click Approve to generate Username & Password (DEFIN202601 format)">
           <table className="data-table">
             <thead>
               <tr><th>#</th><th>Investor ID</th><th>Full Name</th><th>Mobile</th><th>Adviser</th><th>Date</th><th>Actions</th></tr>
             </thead>
             <tbody>
-              {pending.map((m,i)=>(
+              {pending.map((m,i) => (
                 <tr key={m.id}>
                   <td>{i+1}</td>
                   <td><code style={{fontFamily:'monospace',fontSize:'0.78rem'}}>{m.investor_id}</code></td>
@@ -717,7 +569,7 @@ function ApprovedInvestors({ onRefresh }) {
                   <td>
                     <div style={{display:'flex',gap:6}}>
                       <button className="btn btn-success btn-sm" onClick={()=>approve(m,'approve')}>✓ Approve</button>
-                      <button className="btn btn-danger btn-sm"  onClick={()=>approve(m,'reject')}>Delete</button>
+                      <button className="btn btn-danger btn-sm"  onClick={()=>approve(m,'reject')}>✕ Reject</button>
                     </div>
                   </td>
                 </tr>
@@ -734,7 +586,7 @@ function ApprovedInvestors({ onRefresh }) {
             <tr><th>#</th><th>Investor ID</th><th>Name</th><th>Mobile</th><th>Adviser</th><th>DOJ</th><th>Status</th></tr>
           </thead>
           <tbody>
-            {approved.map((m,i)=>(
+            {approved.map((m,i) => (
               <tr key={m.id||i}>
                 <td>{i+1}</td>
                 <td><code style={{fontFamily:'monospace',fontSize:'0.78rem',background:'var(--primary-glow)',color:'var(--primary)',padding:'2px 7px',borderRadius:4}}>{m.investor_id}</code></td>
@@ -747,15 +599,37 @@ function ApprovedInvestors({ onRefresh }) {
                   color:m.status==='Active'?'var(--success)':'var(--warning)'}}>{m.status||'Not Active'}</span></td>
               </tr>
             ))}
-            {approved.length===0 && (
+            {approved.length===0&&(
               <tr><td colSpan={7} style={{textAlign:'center',padding:32,color:'var(--text-muted)'}}>No approved investors yet</td></tr>
             )}
           </tbody>
         </table>
       </Panel>
 
-      {/* Credentials modal (approve flow for legacy pending records) */}
-      <InvestorCredentialsModal creds={credModal} onClose={() => setCredModal(null)} />
+      {/* Credentials Modal — DEFIN202601 */}
+      <Modal open={!!credModal} onClose={()=>setCredModal(null)} title="🎉 Investor Account Created!" size="sm">
+        {credModal && (
+          <div style={{textAlign:'center',padding:'8px 0'}}>
+            <div style={{fontSize:'2.5rem',marginBottom:12}}>🎊</div>
+            <div style={{fontWeight:700,fontSize:'1rem',marginBottom:16,color:'var(--success)'}}>
+              Congratulations Investor Created!
+            </div>
+            <div style={{background:'var(--bg-input)',borderRadius:'var(--border-radius-md)',padding:'16px',fontFamily:'monospace',fontSize:'0.9rem',lineHeight:2.5,marginBottom:12}}>
+              <div>Username: <strong style={{color:'var(--primary)'}}>{credModal.username}</strong></div>
+              <div>Password: <strong style={{color:'var(--primary)'}}>{credModal.password}</strong></div>
+            </div>
+            <div style={{fontSize:'0.78rem',color:'var(--text-muted)',marginBottom:16}}>
+              10-digit hexadecimal password · Share with investor
+            </div>
+            <button className="btn btn-primary" onClick={()=>{
+              navigator.clipboard.writeText(`Username: ${credModal.username}\nPassword: ${credModal.password}`);
+              toast.success('Credentials copied!');
+            }}>Copy Credentials</button>
+            {' '}
+            <button className="btn btn-outline" onClick={()=>setCredModal(null)}>Close</button>
+          </div>
+        )}
+      </Modal>
     </>
   );
 }
