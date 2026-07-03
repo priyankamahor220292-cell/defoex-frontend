@@ -320,7 +320,7 @@ function NewRegistration({ onDone }) {
 
           <div style={{display:'flex',gap:8,marginBottom:8}}>
             <input style={{flex:1,padding:'10px 12px',border:`1.5px solid ${adviserErr?'var(--danger)':'var(--border)'}`,borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontFamily:'monospace',fontSize:'0.9rem'}}
-              placeholder="Enter Adviser Code *" value={adviserCode}
+              placeholder="e.g. DEFAD202601" value={adviserCode}
               onChange={e=>{setAdviserCode(e.target.value.trim());setAdviserErr('');setAdviser(null);}} />
             <button className="btn btn-primary" onClick={verifyAdviser}>Verify →</button>
           </div>

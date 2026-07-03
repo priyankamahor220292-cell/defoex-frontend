@@ -130,7 +130,7 @@ function Step1({form,set,errors}){
       </div>
       <F label="Promoter Adviser ID" req err={errors.promoter_adviser_id}>
         <div className="rf-row-btn">
-          <input className="rf-input" value={form.promoter_adviser_id} onChange={e=>set(p=>({...p,promoter_adviser_id:e.target.value,promoter_name:'',promoter_rank:''}))} onKeyDown={e=>e.key==='Enter'&&verify()} placeholder="Enter Promoter / Adviser ID"/>
+          <input className="rf-input" value={form.promoter_adviser_id} onChange={e=>set(p=>({...p,promoter_adviser_id:e.target.value,promoter_name:'',promoter_rank:''}))} onKeyDown={e=>e.key==='Enter'&&verify()} placeholder="e.g. DEFAD202601"/>
           <button className="rf-btn-verify" onClick={verify} disabled={busy}>{busy?'Verifying…':'Verify'}</button>
         </div>
       </F>

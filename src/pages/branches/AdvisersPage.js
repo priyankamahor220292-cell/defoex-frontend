@@ -258,7 +258,7 @@ export default function AdvisersPage() {
             <div style={{display:'flex',gap:8,marginBottom:8}}>
               <input
                 style={{flex:1,padding:'8px 12px',border:`1px solid ${promoterErr?'var(--danger)':'var(--border)'}`,borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontSize:'0.85rem',fontFamily:'monospace'}}
-                placeholder="e.g. DFX-2026-000001"
+                placeholder="e.g. DEFAD202601"
                 value={promoterCode}
                 onChange={e => { setPromoterCode(e.target.value.trim()); setPromoterErr(''); }}
                 onKeyDown={e => e.key === 'Enter' && verifyPromoter()}

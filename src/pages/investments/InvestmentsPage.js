@@ -204,7 +204,7 @@ function NewPlanForm({ type, onDone }) {
           <Field label="Investor ID *">
             <div style={{display:'flex',gap:8}}>
               <Input value={investorId} onChange={e=>{setInvestorId(e.target.value.trim());setInvestorInfo(null);}}
-                placeholder="e.g. DFX-2026-000001" style={{flex:1,fontFamily:'monospace'}} />
+                placeholder="e.g. DEFIN202601" style={{flex:1,fontFamily:'monospace'}} />
               <button className="btn btn-outline" onClick={getDetails} style={{flexShrink:0}}>Get Details</button>
             </div>
           </Field>
@@ -337,7 +337,7 @@ function MISContribution() {
       {/* Enter Investor ID + Get Details */}
       <div style={{display:'flex',gap:8,marginBottom:14,maxWidth:500}}>
         <Input value={investorId} onChange={e=>{setInvestorId(e.target.value.trim());setInfo(null);}}
-          placeholder="Enter Investor ID (e.g. DFX-2026-000001)" style={{flex:1,fontFamily:'monospace'}} />
+          placeholder="Enter Investor ID (e.g. DEFIN202601)" style={{flex:1,fontFamily:'monospace'}} />
         <button className="btn btn-primary" onClick={getDetails}>Get Details</button>
       </div>
 
