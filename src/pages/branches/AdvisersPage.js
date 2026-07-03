@@ -56,9 +56,16 @@ export default function AdvisersPage() {
     setPromoterErr('');
     setPromoterInfo(null);
     setVisibleRanks([]);
-    if (!promoterCode.trim()) { setPromoterErr('Enter Promoter Adviser ID'); return; }
+    let code = promoterCode.trim();
+    if (!code) { setPromoterErr('Enter Promoter Adviser ID'); return; }
+    // Auto-correct common DEFIN → DEFAD typo (same year+sequence)
+    const upper = code.toUpperCase();
+    if (upper.startsWith('DEFIN') && upper.length > 5) {
+      code = 'DEFAD' + upper.slice(5);
+      setPromoterCode(code);
+    }
     try {
-      const { data } = await api.get(`/api/advisers/${promoterCode.trim()}`);
+      const { data } = await api.get(`/api/advisers/${code}`);
       const adv = data.data;
       setPromoterInfo(adv);
       set('parent_adviser_code', adv.adviser_code);
@@ -255,6 +262,10 @@ export default function AdvisersPage() {
           {/* Step 1: Enter Promoter Adviser ID */}
           <div style={{background:'var(--bg-input)',borderRadius:'var(--border-radius-sm)',padding:'16px',marginBottom:16,border:'1px solid var(--border)'}}>
             <div style={{fontWeight:700,marginBottom:10,fontSize:'0.9rem'}}>Step 1 — Enter Promoter Adviser ID</div>
+            <div style={{fontSize:'0.78rem',color:'var(--text-muted)',marginBottom:8}}>
+              Use <strong>Adviser ID</strong> (<code>DEFAD202601</code>), not Investor ID (<code>DEFIN...</code>).
+              First promoter: <code>DEFAD202601</code>
+            </div>
             <div style={{display:'flex',gap:8,marginBottom:8}}>
               <input
                 style={{flex:1,padding:'8px 12px',border:`1px solid ${promoterErr?'var(--danger)':'var(--border)'}`,borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontSize:'0.85rem',fontFamily:'monospace'}}

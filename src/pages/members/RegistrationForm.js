@@ -104,8 +104,13 @@ function Step1({form,set,errors}){
   const [busy,setBusy]=useState(false);
   const today = todayISO();
   const verify=async()=>{
-    const id=form.promoter_adviser_id.trim();
+    let id=form.promoter_adviser_id.trim();
     if(!id){toast.error('Enter Promoter / Adviser ID');return;}
+    const upper=id.toUpperCase();
+    if(upper.startsWith('DEFIN')&&upper.length>5){
+      id='DEFAD'+upper.slice(5);
+      set(p=>({...p,promoter_adviser_id:id}));
+    }
     setBusy(true);
     try{
       const r=await memberService.checkAdviser(id);
@@ -128,7 +133,7 @@ function Step1({form,set,errors}){
           <I type="date" value={today} readOnly disabled/>
         </F>
       </div>
-      <F label="Promoter Adviser ID" req err={errors.promoter_adviser_id}>
+      <F label="Promoter Adviser ID" req err={errors.promoter_adviser_id} hint="Adviser ID (DEFAD...), not Investor ID (DEFIN...)">
         <div className="rf-row-btn">
           <input className="rf-input" value={form.promoter_adviser_id} onChange={e=>set(p=>({...p,promoter_adviser_id:e.target.value,promoter_name:'',promoter_rank:''}))} onKeyDown={e=>e.key==='Enter'&&verify()} placeholder="e.g. DEFAD202601"/>
           <button className="rf-btn-verify" onClick={verify} disabled={busy}>{busy?'Verifying…':'Verify'}</button>
