@@ -119,6 +119,9 @@ export default function UsersPage() {
     if (form.role === 'branchmanager' && !form.branch_id) {
       return toast.error('Select a branch for the branch manager');
     }
+    if (form.role === 'branchmanager' && !/^\d{10}$/.test((form.mobile || '').replace(/\D/g, ''))) {
+      return toast.error('Enter a unique 10-digit mobile number for the branch manager');
+    }
     setSaving(true);
     try {
       const r = await api.post('/api/users/', { ...form, branch_id: form.branch_id ? parseInt(form.branch_id) : null });
@@ -138,6 +141,9 @@ export default function UsersPage() {
     if (req.some(f => !editForm[f]?.trim())) return toast.error('Fill all required fields');
     if (editUser.role === 'branchmanager' && !editForm.branch_id) {
       return toast.error('Select a branch for the branch manager');
+    }
+    if (editUser.role === 'branchmanager' && !/^\d{10}$/.test((editForm.mobile || '').replace(/\D/g, ''))) {
+      return toast.error('Enter a unique 10-digit mobile number for the branch manager');
     }
     setEditSaving(true);
     try {
@@ -308,7 +314,14 @@ export default function UsersPage() {
         </div>
         <div className="reg-form-row">
           <Field label="Email" required><Input type="email" value={form.email} onChange={e => set('email', e.target.value)} /></Field>
-          <Field label="Mobile"><Input value={form.mobile} onChange={e => set('mobile', e.target.value)} maxLength={10} /></Field>
+          <Field label="Mobile" required={form.role === 'branchmanager'}>
+            <Input
+              value={form.mobile}
+              onChange={e => set('mobile', e.target.value.replace(/\D/g, '').slice(0, 10))}
+              maxLength={10}
+              placeholder={form.role === 'branchmanager' ? 'Unique 10-digit number' : ''}
+            />
+          </Field>
         </div>
         <div className="reg-form-row">
           <Field label="Password" required><Input type="password" value={form.password} onChange={e => set('password', e.target.value)} placeholder="Min 6 chars" /></Field>
@@ -348,7 +361,14 @@ export default function UsersPage() {
             </div>
             <div className="reg-form-row">
               <Field label="Email" required><Input type="email" value={editForm.email} onChange={e => setEdit('email', e.target.value)} /></Field>
-              <Field label="Mobile"><Input value={editForm.mobile} onChange={e => setEdit('mobile', e.target.value)} maxLength={10} /></Field>
+              <Field label="Mobile" required={editUser.role === 'branchmanager'}>
+                <Input
+                  value={editForm.mobile}
+                  onChange={e => setEdit('mobile', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  maxLength={10}
+                  placeholder={editUser.role === 'branchmanager' ? 'Unique 10-digit number' : ''}
+                />
+              </Field>
             </div>
             <Field label={editUser.role === 'branchmanager' ? 'Branch *' : 'Branch'}>
               <Select value={editForm.branch_id} onChange={e => setEdit('branch_id', e.target.value)}>

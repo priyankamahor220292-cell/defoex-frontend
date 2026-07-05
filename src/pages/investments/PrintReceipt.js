@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
 import Loading from '../../components/Loading/Loading';
+import AppLogo from '../../components/AppLogo/AppLogo';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import './PrintReceipt.css';
@@ -55,7 +56,7 @@ export default function PrintReceipt({ irn, onClose }) {
     /* Header */
     .bond-header{text-align:center;border-bottom:2px solid #0d47a1;padding-bottom:8px;margin-bottom:10px}
     .bh-logo-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:6px}
-    .bh-logo{width:44px;height:44px;background:#0d47a1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;color:#fff}
+    .bh-logo{width:44px;height:44px;object-fit:contain}
     .bh-company{font-size:17px;font-weight:900;color:#0d47a1;letter-spacing:1px;font-family:Arial,sans-serif}
     .bh-cin{font-size:8px;color:#546e7a;font-family:Arial,sans-serif}
     .bond-title{font-size:14px;font-weight:900;letter-spacing:3px;text-transform:uppercase;color:#0d47a1;margin:6px 0 2px;font-family:Arial,sans-serif}
@@ -194,7 +195,7 @@ export default function PrintReceipt({ irn, onClose }) {
                 {/* ── HEADER ── */}
                 <div className="bond-header">
                   <div className="bh-logo-row">
-                    <div className="bh-logo">D</div>
+                    <AppLogo size={44} className="bh-logo" />
                     <div>
                       <div className="bh-company">DEFOEX INFRATECH PVT. LTD.</div>
                       <div className="bh-cin">CIN – U68100MP2026PTC083560</div>

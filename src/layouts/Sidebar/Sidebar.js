@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import AppLogo from '../../components/AppLogo/AppLogo';
 import './Sidebar.css';
 
 const NAV = {
@@ -56,7 +57,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`}>
       {/* Logo */}
       <div className="sidebar-logo">
-        <div className="logo-icon">D</div>
+        <AppLogo size={38} className="logo-icon" />
         {!collapsed && (
           <div className="logo-text">
             <span className="logo-brand">DefOex</span>

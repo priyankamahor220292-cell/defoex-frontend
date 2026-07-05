@@ -18,12 +18,8 @@
   gap: 24px; z-index: 9999;
 }
 .loader-logo {
-  width: 60px; height: 60px;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-display); font-weight: 800; font-size: 1.8rem; color: #fff;
   animation: pulse 1.5s ease infinite;
+  filter: drop-shadow(0 4px 20px rgba(0, 176, 255, 0.3));
 }
 @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
 .loader-bar {

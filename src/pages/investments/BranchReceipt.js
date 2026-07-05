@@ -20,7 +20,7 @@ function ReceiptBody({ data }) {
 
   return (
     <div className="inv-receipt-page">
-      <div className="inv-receipt-company">{data.company_name || 'DEFOEX INTRATECH PRIVATE LIMITED'}</div>
+      <div className="inv-receipt-company">{data.company_name || 'DEFOEX INFRATECH PRIVATE LIMITED'}</div>
       <div className="inv-receipt-title">{data.document_title || 'INVESTMENT RECEIPT'}</div>
 
       <div className="inv-receipt-meta">

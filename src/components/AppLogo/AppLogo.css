@@ -1,0 +1,5 @@
+.app-logo {
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
+}

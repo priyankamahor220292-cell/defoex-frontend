@@ -211,8 +211,8 @@ function Step2({ form, set, errors }) {
         <I value={form.father_spouse_name} onChange={e => set(p => ({ ...p, father_spouse_name: e.target.value }))} placeholder="Father's or Spouse's full name" />
       </F>
       <div className="rf-g2">
-        <F label="Mobile Number" req err={errors.mobile}>
-          <I value={form.mobile} onChange={e => set(p => ({ ...p, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) }))} placeholder="10-digit" maxLength={10} />
+        <F label="Mobile Number" req err={errors.mobile} hint="10-digit · must be unique">
+          <I value={form.mobile} onChange={e => set(p => ({ ...p, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) }))} placeholder="10-digit mobile" maxLength={10} />
         </F>
         <F label="Date of Birth" req err={errors.date_of_birth}>
           <I type="date" value={form.date_of_birth} onChange={e => set(p => ({ ...p, date_of_birth: e.target.value }))} />

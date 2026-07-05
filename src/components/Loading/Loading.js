@@ -1,4 +1,5 @@
 import React from 'react';
+import AppLogo from '../AppLogo/AppLogo';
 import './Loading.css';
 
 export default function Loading({ text = 'Loading...' }) {
@@ -13,7 +14,7 @@ export default function Loading({ text = 'Loading...' }) {
 export function PageLoader() {
   return (
     <div className="page-loader">
-      <div className="loader-logo">D</div>
+      <AppLogo size={60} className="loader-logo" />
       <div className="loader-bar"><div className="loader-progress" /></div>
     </div>
   );

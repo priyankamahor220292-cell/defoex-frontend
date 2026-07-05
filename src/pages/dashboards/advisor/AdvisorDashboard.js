@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Panel from '../../../components/Panel/Panel';
 import Loading from '../../../components/Loading/Loading';
+import AppLogo from '../../../components/AppLogo/AppLogo';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
 import './AdvisorDashboard.css';
@@ -25,6 +26,7 @@ export default function AdvisorDashboard() {
       {/* ── Sidebar ── */}
       <aside className="adv-sidebar">
         <div className="adv-sidebar-brand">
+          <AppLogo size={40} className="adv-brand-logo" />
           <div className="adv-brand-name">DEFOEX</div>
           <div className="adv-brand-sub">ADVISER PORTAL</div>
         </div>

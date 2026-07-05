@@ -219,7 +219,12 @@ export default function BranchesPage() {
               <Input type="email" value={form.manager_email} onChange={e => set('manager_email', e.target.value)} />
             </Field>
             <Field label="Manager Mobile">
-              <Input value={form.manager_mobile} onChange={e => set('manager_mobile', e.target.value)} maxLength={10} />
+              <Input
+                value={form.manager_mobile}
+                onChange={e => set('manager_mobile', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                maxLength={10}
+                placeholder="Unique 10-digit number"
+              />
             </Field>
           </div>
         </div>
