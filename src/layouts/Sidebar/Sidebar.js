@@ -30,11 +30,14 @@ const NAV = {
     { path:'/notifications',icon:'🔔', label:'Notifications' },
   ],
   advisor: [
-    { path:'/dashboard',    icon:'⊞', label:'Dashboard' },
-    { path:'/members',      icon:'👤', label:'My Investors' },
-    { path:'/commissions',  icon:'💰', label:'My Benefits' },
-    { path:'/reports',      icon:'📋', label:'Reports' },
-    { path:'/notifications',icon:'🔔', label:'Notifications' },
+    { path:'/dashboard',                    icon:'⊞', label:'Dashboard',          end: true },
+    { path:'/dashboard/info',               icon:'👤', label:'Adviser Info'        },
+    { path:'/dashboard/self-contribution',  icon:'💼', label:'Self Contribution'   },
+    { path:'/dashboard/down-contribution',  icon:'🌐', label:'Down Contribution'   },
+    { path:'/members',                      icon:'👥', label:'My Investors'        },
+    { path:'/commissions',                  icon:'💰', label:'My Benefits'         },
+    { path:'/reports',                      icon:'📋', label:'Reports'             },
+    { path:'/notifications',                icon:'🔔', label:'Notifications'       },
   ],
   member: [
     { path:'/dashboard',    icon:'⊞', label:'Dashboard' },
@@ -60,8 +63,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
         <AppLogo size={38} className="logo-icon" />
         {!collapsed && (
           <div className="logo-text">
-            <span className="logo-brand">DefOex</span>
-            <span className="logo-sub">IntraTech</span>
+            <span className="logo-brand">Defoex</span>
+            <span className="logo-sub">InfraTech</span>
           </div>
         )}
       </div>
@@ -86,7 +89,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
       {/* Nav */}
       <nav className="sidebar-nav">
         {items.map(item => (
-          <NavLink key={item.path} to={item.path}
+          <NavLink key={item.path} to={item.path} end={item.end}
             className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
             title={collapsed ? item.label : ''}
             onClick={() => onMobileClose?.()}>

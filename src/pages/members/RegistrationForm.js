@@ -133,7 +133,7 @@ function Step1({ form, set, errors, advisers }) {
       <h3 className="rf-step-h">Enter Adviser ID</h3>
       <p className="rf-step-desc">Every investor must be registered under an active Adviser ID.</p>
 
-      {advisers.length > 0 && (
+      {/* {advisers.length > 0 && (
         <div className="rf-adviser-pills-wrap">
           <div className="rf-adviser-pills-label">Available Adviser Codes — click to select:</div>
           <div className="rf-adviser-pills">
@@ -149,15 +149,16 @@ function Step1({ form, set, errors, advisers }) {
             ))}
           </div>
         </div>
-      )}
+      )} */}
 
-      <F label="Adviser ID" req err={errors.promoter_adviser_id}>
+      <F label="Adviser ID" req err={errors.promoter_adviser_id}
+        hint="Approved field adviser only — company code DEFAD202601 cannot be used">
         <div className="rf-row-btn">
           <I
             value={form.promoter_adviser_id}
             onChange={e => set(p => ({ ...p, promoter_adviser_id: e.target.value.trim(), promoter_name: '', promoter_rank: '' }))}
             onKeyDown={e => e.key === 'Enter' && verify()}
-            placeholder="e.g. DEFAD202606 or DFX-2026-000006"
+            placeholder="Adviser ID"
           />
           <button type="button" className="rf-btn-verify" onClick={verify} disabled={busy}>
             {busy ? 'Verifying…' : 'Verify →'}

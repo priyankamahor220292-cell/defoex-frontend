@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import Panel from '../../../components/Panel/Panel';
 import Loading from '../../../components/Loading/Loading';
-import AppLogo from '../../../components/AppLogo/AppLogo';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
 import './AdvisorDashboard.css';
@@ -10,50 +10,24 @@ import { formatLocalDate } from '../../../utils/dateTime';
 const fmt  = n => `\u20b9${(n||0).toLocaleString('en-IN')}`;
 const fmtN = n => (n||0).toLocaleString('en-IN');
 
-export default function AdvisorDashboard() {
-  const { user } = useAuth();
-  const [view, setView] = useState('dashboard');
+function advisorViewFromPath(pathname) {
+  if (pathname.includes('/info')) return 'info';
+  if (pathname.includes('/self-contribution')) return 'self';
+  if (pathname.includes('/down-contribution')) return 'down';
+  return 'dashboard';
+}
 
-  const NAV = [
-    { key: 'dashboard',   icon: '📊', label: 'Dashboard'          },
-    { key: 'info',        icon: '👤', label: 'Adviser Info'        },
-    { key: 'self',        icon: '💼', label: 'Self Contribution'   },
-    { key: 'down',        icon: '🌐', label: 'Down Contribution'   },
-  ];
+export default function AdvisorDashboard() {
+  const { pathname } = useLocation();
+  const view = advisorViewFromPath(pathname);
 
   return (
-    <div className="adv-layout">
-      {/* ── Sidebar ── */}
-      <aside className="adv-sidebar">
-        <div className="adv-sidebar-brand">
-          <AppLogo size={40} className="adv-brand-logo" />
-          <div className="adv-brand-name">DEFOEX</div>
-          <div className="adv-brand-sub">ADVISER PORTAL</div>
-        </div>
-        <nav className="adv-nav">
-          {NAV.map(n => (
-            <button key={n.key}
-              className={`adv-nav-item ${view === n.key ? 'active' : ''}`}
-              onClick={() => setView(n.key)}>
-              <span className="adv-nav-icon">{n.icon}</span>
-              {n.label}
-            </button>
-          ))}
-        </nav>
-        <div className="adv-sidebar-footer">
-          <div className="adv-user-name">{user?.full_name}</div>
-          <div className="adv-user-role">Adviser Account</div>
-        </div>
-      </aside>
-
-      {/* ── Main ── */}
-      <main className="adv-main">
-        {view === 'dashboard' && <DashboardView />}
-        {view === 'info'      && <AdviserInfoView />}
-        {view === 'self'      && <SelfContributionView />}
-        {view === 'down'      && <DownContributionView />}
-      </main>
-    </div>
+    <>
+      {view === 'dashboard' && <DashboardView />}
+      {view === 'info'      && <AdviserInfoView />}
+      {view === 'self'      && <SelfContributionView />}
+      {view === 'down'      && <DownContributionView />}
+    </>
   );
 }
 
@@ -221,7 +195,7 @@ function SelfContributionView() {
     <div className="page-enter">
       <div className="adv-page-header">
         <h1>Self Contribution Info</h1>
-        <p className="text-muted">List of all investments made by this adviser</p>
+        <p className="text-muted">Direct business — investments registered under your adviser code</p>
       </div>
 
       {data && (
@@ -239,11 +213,11 @@ function SelfContributionView() {
         </div>
       )}
 
-      <Panel title="My Investors' Investment List">
+      <Panel title="Direct Investment List">
         {loading ? <Loading /> : (
           <table className="data-table">
             <thead>
-              <tr><th>#</th><th>IRN</th><th>Investor Name</th><th>Investor ID</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Maturity</th><th>ROI</th></tr>
+              <tr><th>#</th><th>IRN</th><th>Investor Name</th><th>Investor ID</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Return On Invest</th><th>ROI</th></tr>
             </thead>
             <tbody>
               {(data?.items||[]).map((inv,i) => (
@@ -326,7 +300,7 @@ function DownContributionView() {
           {loading ? <Loading /> : (
             <table className="data-table">
               <thead>
-                <tr><th>#</th><th>IRN</th><th>Investor</th><th>Adviser</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Maturity</th></tr>
+                <tr><th>#</th><th>IRN</th><th>Investor</th><th>Adviser</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Return On Invest</th></tr>
               </thead>
               <tbody>
                 {(data?.items||[]).map((inv,i) => (

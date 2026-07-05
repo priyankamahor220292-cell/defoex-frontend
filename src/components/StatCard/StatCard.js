@@ -1,10 +1,15 @@
 import React from 'react';
 import './StatCard.css';
 
-export default function StatCard({ title, value, icon, color = 'primary', subtitle, trend }) {
+export default function StatCard({ title, value, icon, color = 'primary', subtitle, trend, variant }) {
+  const isFeatured = variant === 'featured';
+
   return (
-    <div className={`stat-card stat-card--${color}`}>
-      <div className="stat-card__body">
+    <div className={`stat-card stat-card--${color}${isFeatured ? ' stat-card--featured' : ''}`}>
+      <div className={`stat-card__body${isFeatured ? ' stat-card__body--featured' : ''}`}>
+        {isFeatured && icon && (
+          <div className={`stat-card__icon-box stat-card__icon-box--${color}`}>{icon}</div>
+        )}
         <div className="stat-card__info">
           <div className="stat-card__title">{title}</div>
           <div className="stat-card__value">{value}</div>
@@ -15,7 +20,7 @@ export default function StatCard({ title, value, icon, color = 'primary', subtit
             </div>
           )}
         </div>
-        <div className="stat-card__icon">{icon}</div>
+        {!isFeatured && icon && <div className="stat-card__icon">{icon}</div>}
       </div>
     </div>
   );

@@ -1,7 +1,98 @@
+.br-page {}
+
+.br-page-header {
+  margin-bottom: 16px;
+}
+
+.br-page-header h1 {
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.br-page-header .text-muted {
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.br-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.br-search-wrap {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-lg);
+  padding: 0 14px;
+  height: 44px;
+  box-shadow: var(--shadow-card);
+}
+
+.br-search-ico {
+  font-size: 0.95rem;
+  opacity: 0.5;
+}
+
+.br-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.br-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.br-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  height: 44px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-lg);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+  box-shadow: var(--shadow-card);
+}
+
+.br-tool-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.br-create-btn {
+  height: 44px;
+  padding: 0 20px;
+  white-space: nowrap;
+}
+
+.br-summary {
+  margin-bottom: 20px;
+}
+
 .branches-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
 }
 
 .branch-card {
@@ -11,6 +102,8 @@
   box-shadow: var(--shadow-card);
   overflow: hidden;
   transition: transform var(--transition), box-shadow var(--transition);
+  display: flex;
+  flex-direction: column;
 }
 
 .branch-card:hover {
@@ -26,16 +119,14 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-table-head);
+  padding: 16px 16px 12px;
 }
 
 .branch-icon {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   background: linear-gradient(135deg, var(--primary), var(--accent));
-  border-radius: 10px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -48,7 +139,7 @@
 
 .branch-name {
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   color: var(--text-primary);
 }
 
@@ -64,47 +155,88 @@
   min-width: 0;
 }
 
+.br-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--bg-input);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.br-status--active {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.br-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
 .branch-card__body {
-  padding: 14px 16px;
+  padding: 0 16px 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  flex: 1;
 }
 
 .branch-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
 }
 
+.br-row-ico {
+  font-size: 0.85rem;
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+
 .branch-wallet-row {
-  display: flex;
-  gap: 16px;
-  margin-top: 6px;
-  padding: 10px 12px;
-  background: var(--bg-input);
-  border-radius: var(--border-radius-sm);
-  border: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .bwr-bal {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  padding: 10px 12px;
+  background: rgba(13, 71, 161, 0.06);
+  border: 1px solid rgba(13, 71, 161, 0.1);
+  border-radius: var(--border-radius-sm);
 }
 
 .bwr-bal-label {
-  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.62rem;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  font-weight: 600;
+}
+
+.bwr-ico {
+  font-size: 0.75rem;
 }
 
 .bwr-bal-val {
   font-family: var(--font-display);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 800;
   color: var(--text-primary);
 }
@@ -113,12 +245,189 @@
   color: var(--warning);
 }
 
+.br-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.br-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+  padding: 8px 4px;
+  background: var(--bg-input);
+  border-radius: var(--border-radius-sm);
+}
+
+.br-metric-ico {
+  font-size: 0.9rem;
+  margin-bottom: 2px;
+}
+
+.br-metric-label {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+}
+
+.br-metric strong {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
 .branch-card__footer {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
   border-top: 1px solid var(--border);
   background: var(--bg-input);
+}
+
+.br-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.br-action-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.br-action-btn span {
+  font-size: 0.8rem;
+}
+
+.br-menu-wrap {
+  position: relative;
+  margin-left: auto;
+}
+
+.br-menu-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-sm);
+  font-size: 1rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.br-menu-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.br-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  min-width: 150px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--shadow);
+  z-index: 20;
+  overflow: hidden;
+}
+
+.br-menu button {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  text-align: left;
+  background: none;
+  border: none;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.br-menu button:hover {
+  background: var(--bg-input);
+  color: var(--primary);
+}
+
+.br-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+  padding: 12px 4px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.br-page-info {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.br-page-btns {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.br-page-btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.br-page-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.br-page-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.br-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.br-page-ellipsis {
+  padding: 0 4px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
 }
 
 .empty-state {
@@ -240,7 +549,30 @@
   margin-top: 4px;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 1100px) {
+  .branches-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .branches-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .br-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .br-search-wrap {
+    width: 100%;
+  }
+
+  .branch-card__footer {
+    flex-wrap: wrap;
+  }
+
   .wallet-detail-cards {
     grid-template-columns: 1fr;
   }

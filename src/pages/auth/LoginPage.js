@@ -111,7 +111,7 @@ export default function LoginPage() {
         <div className="login-left-inner">
           <div className="login-brand">
             <AppLogo size={64} className="brand-logo" />
-            <div className="brand-name">DefOex</div>
+            <div className="brand-name">Defoex</div>
             <div className="brand-tagline">InfraTech Private Limited</div>
           </div>
 
@@ -237,7 +237,7 @@ export default function LoginPage() {
 
         <div className="login-footer">
           <span>CIN – U68100MP2026PTC083560</span>
-          <span>© 2026 DefOex InfraTech Pvt. Ltd.</span>
+          <span>© 2026 Defoex InfraTech Pvt. Ltd.</span>
         </div>
       </div>
     </div>

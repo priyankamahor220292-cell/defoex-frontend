@@ -35,7 +35,7 @@ export default function Topbar({ collapsed, onMenuToggle, mobileOpen }) {
         >
           <span /><span /><span />
         </button>
-        <div className="topbar-title">DefOex IntraTech</div>
+        <div className="topbar-title">Defoex InfraTech</div>
         <div className="topbar-date hide-mobile">{formatDate(time)}</div>
       </div>
       <div className="topbar-right">

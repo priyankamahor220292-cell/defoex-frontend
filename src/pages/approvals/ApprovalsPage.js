@@ -364,7 +364,7 @@ function InvApprovals({ onRefresh }) {
                   <th>Tenure</th>
                   <th>Monthly</th>
                   <th>Total Invest</th>
-                  <th>Maturity</th>
+                  <th>Return On Invest</th>
                   <th>Due Date</th>
                   <th>Status</th>
                   <th>Actions</th>

@@ -136,8 +136,8 @@ function Step1({ form, set, errors, branches, defaultBranchId }) {
   return (
     <div>
       <h3 className="af-step-h">Step 1 — Promoter Adviser Verification</h3>
-      <F label="Promoter Adviser ID" req err={errors.promoter_adviser_id}
-        hint="Adviser ID e.g. DFX-2026-000006 or DEFAD login">
+      <F label="Adviser ID" req err={errors.promoter_adviser_id}
+        hint="Approved field adviser only — company code (DEFAD202601) cannot be used">
         <div className="af-row-btn">
           <I
             value={form.promoter_adviser_id}
@@ -150,7 +150,7 @@ function Step1({ form, set, errors, branches, defaultBranchId }) {
               rank_id: '',
             }))}
             onKeyDown={e => e.key === 'Enter' && verify()}
-            placeholder="Adviser ID e.g. DFX-2026-000006 or DEFAD login"
+            placeholder="Adviser ID"
           />
           <button type="button" className="af-btn-verify" onClick={verify} disabled={busy}>
             {busy ? 'Verifying…' : 'Verify →'}

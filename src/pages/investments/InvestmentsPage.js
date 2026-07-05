@@ -84,11 +84,10 @@ const displayTRI = (p) => {
 
 const approvalBadge = (status) => {
   const s = status || 'Pending';
-  const bg = s === 'Approved' ? 'var(--success-bg)' : s === 'Rejected' ? 'var(--danger-bg)' : 'var(--warning-bg)';
-  const color = s === 'Approved' ? 'var(--success)' : s === 'Rejected' ? 'var(--danger)' : 'var(--warning)';
+  const cls = s === 'Approved' ? 'approved' : s === 'Rejected' ? 'rejected' : 'pending';
   return (
-    <span style={{ fontSize:'0.72rem', fontWeight:700, padding:'2px 9px', borderRadius:10, background:bg, color }}>
-      {s}
+    <span className={`invp-approval-pill ${cls}`}>
+      {s === 'Approved' ? '✓ ' : ''}{s}
     </span>
   );
 };
@@ -115,17 +114,20 @@ export default function InvestmentsPage() {
 
   return (
     <>
-    <div className="page-enter">
-      <div className="page-header">
-        <div><h1>Investment Plans</h1><p className="text-muted">MIS / SIS plan management</p></div>
-        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-          <button className={`btn ${view==='list'?'btn-primary':'btn-outline'}`} onClick={()=>setView('list')}>All Plans</button>
-          <button className={`btn ${view==='mis'?'btn-primary':'btn-outline'}`} onClick={()=>setView('mis')}>New MIS Plan</button>
-          <button className={`btn ${view==='sis'?'btn-primary':'btn-outline'}`} onClick={()=>setView('sis')}>New SIS Plan</button>
-          <button className={`btn ${view==='chart'?'btn-primary':'btn-outline'}`} onClick={()=>setView('chart')}>MIS Rate Chart</button>
-          <button className={`btn ${view==='sischart'?'btn-primary':'btn-outline'}`} onClick={()=>setView('sischart')}>SIS Rate Chart</button>
-          <button className={`btn ${view==='contrib'?'btn-primary':'btn-outline'}`} onClick={()=>setView('contrib')}>MIS Contribution</button>
-          <button className={`btn ${view==='approve'?'btn-primary':'btn-outline'}`} onClick={()=>setView('approve')}>Approve Investment</button>
+    <div className="invp-page page-enter">
+      <div className="invp-page-header">
+        <div>
+          <h1>Investment Plans</h1>
+          <p className="text-muted">MIS / SIS plan management</p>
+        </div>
+        <div className="invp-header-actions">
+          <button type="button" className={`invp-header-btn${view === 'list' ? ' primary' : ''}`} onClick={() => setView('list')}>All Plans</button>
+          <button type="button" className={`invp-header-btn outline${view === 'mis' ? ' active' : ''}`} onClick={() => setView('mis')}>New MIS Plan</button>
+          <button type="button" className={`invp-header-btn outline${view === 'sis' ? ' active' : ''}`} onClick={() => setView('sis')}>New SIS Plan</button>
+          <button type="button" className={`invp-header-btn outline${view === 'chart' ? ' active' : ''}`} onClick={() => setView('chart')}>MIS Rate Chart</button>
+          <button type="button" className={`invp-header-btn outline${view === 'sischart' ? ' active' : ''}`} onClick={() => setView('sischart')}>SIS Rate Chart</button>
+          <button type="button" className={`invp-header-btn outline${view === 'contrib' ? ' active' : ''}`} onClick={() => setView('contrib')}>MIS Contribution</button>
+          <button type="button" className={`invp-header-btn outline${view === 'approve' ? ' active' : ''}`} onClick={() => setView('approve')}>Approve Investment</button>
         </div>
       </div>
 
@@ -166,11 +168,11 @@ function MISRateChart({ onSelect }) {
             </tr>
             <tr>
               <th style={{background:'rgba(var(--primary-rgb),0.08)'}}>Total Investment</th>
-              <th style={{background:'rgba(var(--primary-rgb),0.08)'}}>ROI / Maturity</th>
+              <th style={{background:'rgba(var(--primary-rgb),0.08)'}}>ROI / Return On Invest</th>
               <th style={{background:'rgba(var(--primary-rgb),0.12)'}}>Total Investment</th>
-              <th style={{background:'rgba(var(--primary-rgb),0.12)'}}>ROI / Maturity</th>
+              <th style={{background:'rgba(var(--primary-rgb),0.12)'}}>ROI / Return On Invest</th>
               <th style={{background:'rgba(var(--primary-rgb),0.16)'}}>Total Investment</th>
-              <th style={{background:'rgba(var(--primary-rgb),0.16)'}}>ROI / Maturity</th>
+              <th style={{background:'rgba(var(--primary-rgb),0.16)'}}>ROI / Return On Invest</th>
             </tr>
           </thead>
           <tbody>
@@ -211,14 +213,14 @@ function MISRateChart({ onSelect }) {
 /* ══ SIS RATE CHART ══ */
 function SISRateChart({ onSelect }) {
   return (
-    <Panel title="SIS (Systematic Investment Scheme)" subtitle="7.5 Year lump sum — maturity amount is double the investment">
+    <Panel title="SIS (Systematic Investment Scheme)" subtitle="7.5 Year lump sum — return on invest amount is double the investment">
       <div style={{overflowX:'auto'}}>
         <table className="data-table">
           <thead>
             <tr>
               <th>S.No.</th>
               <th>Investment Amount</th>
-              <th>Maturity Amount (2×)</th>
+              <th>Return On Invest (2×)</th>
               <th>ROI</th>
               <th>Action</th>
             </tr>
@@ -242,7 +244,7 @@ function SISRateChart({ onSelect }) {
       </div>
       <div style={{marginTop:14,padding:'12px 16px',background:'var(--bg-input)',borderRadius:'var(--border-radius-sm)',fontSize:'0.82rem',color:'var(--text-muted)'}}>
         <strong>Tenure:</strong> 7.5 Years (90 months) &nbsp;|&nbsp;
-        <strong>ROI:</strong> 100% (amount doubles at maturity) &nbsp;|&nbsp;
+        <strong>ROI:</strong> 100% (amount doubles on return on invest) &nbsp;|&nbsp;
         <strong>Range:</strong> ₹5,000 to ₹10,00,000 (multiples of ₹1,000)
       </div>
     </Panel>
@@ -274,13 +276,13 @@ function PlanDetailRows({ plan }) {
     ['Tenure', displayTenure(plan)],
     ['Monthly Amount', fmt(plan.monthly_amount)],
     ['Total Investment', fmt(plan.total_investment_amount)],
-    ['Maturity', fmt(plan.total_maturity_amount)],
+    ['Return On Invest', fmt(plan.total_maturity_amount)],
     ['ROI', plan.roi_display],
     ['TRI (Total Received)', fmt(calcTRI(plan))],
     ['SMI Status', formatSmiStatus(plan)],
     ['Payment Mode', plan.payment_mode],
     ['Investment Date', formatLocalDate(plan.investment_date)],
-    ['Maturity Date', formatLocalDate(plan.maturity_date)],
+    ['Return On Invest Date', formatLocalDate(plan.maturity_date)],
     ['Approval', plan.approval_status],
     ['Status', plan.status],
     ['Created', formatLocal(plan.created_at)],
@@ -398,11 +400,13 @@ function PlanAdminModals({ viewPlan, editPlan, editForm, editSaving, onCloseView
 function PlanList() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'superadmin';
-  const [data, setData] = useState({ items:[], total:0 });
+  const [data, setData] = useState({ items: [], total: 0 });
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
   const [receiptIrn, setReceiptIrn] = useState(null);
   const [branchReceiptIrn, setBranchReceiptIrn] = useState(null);
   const [viewPlan, setViewPlan] = useState(null);
@@ -421,7 +425,8 @@ function PlanList() {
       .finally(() => setLoading(false));
   }, [filterType, filterStatus]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); setPage(1); }, [load]);
+  useEffect(() => { setPage(1); }, [search]);
 
   const deletePlan = async (plan) => {
     if (!window.confirm(`Delete investment plan ${plan.irn}? This cannot be undone.`)) return;
@@ -486,56 +491,99 @@ function PlanList() {
   };
 
   const filtered = search
-    ? (data.items||[]).filter(p =>
+    ? (data.items || []).filter(p =>
         p.irn?.toLowerCase().includes(search.toLowerCase()) ||
         p.investor_id?.toLowerCase().includes(search.toLowerCase()) ||
         p.plan_name?.toLowerCase().includes(search.toLowerCase()))
-    : (data.items||[]);
+    : (data.items || []);
+
+  const summary = {
+    total: data.total || filtered.length,
+    active: filtered.filter(p => (p.status || '').toLowerCase() === 'active' || p.approval_status === 'Approved').length,
+    invested: filtered.reduce((s, p) => s + (parseFloat(p.total_investment_amount) || 0), 0),
+    returns: filtered.reduce((s, p) => s + (parseFloat(p.total_maturity_amount) || 0), 0),
+  };
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const rangeStart = filtered.length ? (page - 1) * pageSize + 1 : 0;
+  const rangeEnd = Math.min(page * pageSize, filtered.length);
+
+  const formatPlanDate = (p) => {
+    const raw = p.investment_date || p.created_at || '';
+    if (!raw) return '—';
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return String(raw).slice(0, 10);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
 
   return (
     <>
-      <Panel
-        title={`All Investment Plans (${data.total || filtered.length})`}
-        actions={
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-            <select
-              className="form-input"
-              style={{ width:'auto', fontSize:'0.82rem', padding:'6px 10px' }}
-              value={filterType}
-              onChange={e => setFilterType(e.target.value)}
-            >
-              <option value="">All Types</option>
-              <option value="MIS">MIS</option>
-              <option value="SIS">SIS</option>
-            </select>
-            <select
-              className="form-input"
-              style={{ width:'auto', fontSize:'0.82rem', padding:'6px 10px' }}
-              value={filterStatus}
-              onChange={e => setFilterStatus(e.target.value)}
-            >
-              <option value="">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-            <button className="btn btn-outline btn-sm" onClick={load}>↻ Refresh</button>
+      {!loading && (
+        <div className="grid-4 invp-summary">
+          <div className="invp-stat-card">
+            <div className="invp-stat-icon invp-stat-icon--blue">📋</div>
+            <div>
+              <div className="invp-stat-label">Total Plans</div>
+              <div className="invp-stat-value">{summary.total}</div>
+              <div className="invp-stat-sub">All Investment Plans</div>
+            </div>
           </div>
-        }
-      >
-        <div style={{ display:'flex', gap:10, marginBottom:14, maxWidth:420 }}>
-          <input
-            style={{ flex:1, padding:'8px 12px', border:'1px solid var(--border)', borderRadius:'var(--border-radius-md)', background:'var(--bg-input)', color:'var(--text-primary)', fontSize:'0.85rem' }}
-            placeholder="Search Plan ID / Investor ID / Plan name"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          {search && <button className="btn btn-outline btn-sm" onClick={() => setSearch('')}>✕</button>}
+          <div className="invp-stat-card">
+            <div className="invp-stat-icon invp-stat-icon--green">📊</div>
+            <div>
+              <div className="invp-stat-label">Active Plans</div>
+              <div className="invp-stat-value">{summary.active}</div>
+              <div className="invp-stat-sub">Currently Active</div>
+            </div>
+          </div>
+          <div className="invp-stat-card">
+            <div className="invp-stat-icon invp-stat-icon--orange">📈</div>
+            <div>
+              <div className="invp-stat-label">Total Invested</div>
+              <div className="invp-stat-value">{fmt(summary.invested)}</div>
+              <div className="invp-stat-sub">Across All Plans</div>
+            </div>
+          </div>
+          <div className="invp-stat-card">
+            <div className="invp-stat-icon invp-stat-icon--purple">💰</div>
+            <div>
+              <div className="invp-stat-label">Total Returns</div>
+              <div className="invp-stat-value">{fmt(summary.returns)}</div>
+              <div className="invp-stat-sub">Expected Returns</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="invp-table-wrap">
+        <div className="invp-toolbar">
+          <div className="invp-search-wrap">
+            <span className="invp-search-ico">🔍</span>
+            <input
+              className="invp-search-input"
+              placeholder="Search Plan ID / Investor ID / Plan name"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <select className="invp-filter-sel" value={filterType} onChange={e => setFilterType(e.target.value)}>
+            <option value="">All Types</option>
+            <option value="MIS">MIS</option>
+            <option value="SIS">SIS</option>
+          </select>
+          <select className="invp-filter-sel" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <option value="">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <button type="button" className="invp-tool-btn" onClick={load}>↻ Refresh</button>
         </div>
 
         {loading ? <Loading /> : (
-          <div style={{ overflowX:'auto' }}>
-            <table className="data-table">
+          <div className="invp-table-scroll">
+            <table className="invp-table">
               <thead>
                 <tr>
                   <th>#</th>
@@ -555,62 +603,53 @@ function PlanList() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p, i) => (
+                {paged.map((p, i) => (
                   <tr key={p.id}>
-                    <td>{i + 1}</td>
+                    <td className="invp-td-num">{rangeStart + i}</td>
                     <td>
-                      <code style={{ fontFamily:'monospace', fontSize:'0.72rem', color:'var(--success)' }}>
-                        {p.irn}
-                      </code>
+                      <div className="invp-plan-id-cell">
+                        <span className={`invp-type-tag ${(p.plan_type || 'MIS').toLowerCase()}`}>
+                          {(p.plan_type || 'MIS')} PLAN
+                        </span>
+                        <span className="invp-irn">{p.irn}</span>
+                      </div>
                     </td>
-                    <td>
-                      <code style={{ fontFamily:'monospace', fontSize:'0.72rem', color:'var(--primary)' }}>
-                        {p.investor_id}
-                      </code>
-                    </td>
-                    <td><strong style={{ fontSize:'0.82rem' }}>{p.plan_name}</strong></td>
-                    <td><strong style={{ color:'var(--primary)' }}>{fmt(p.monthly_amount)}</strong></td>
+                    <td><span className="invp-id-chip">{p.investor_id}</span></td>
+                    <td><strong>{p.plan_name}</strong></td>
+                    <td><strong className="invp-amt-primary">{fmt(p.monthly_amount)}</strong></td>
                     <td>{fmt(p.total_investment_amount)}</td>
-                    <td><strong style={{ color:'var(--warning)' }}>{displayTRI(p)}</strong></td>
-                    <td><strong style={{ color:'var(--success)' }}>{fmt(p.total_maturity_amount)}</strong></td>
-                    <td style={{ fontSize:'0.82rem' }}>{p.payment_mode || 'Cash'}</td>
+                    <td><strong className="invp-amt-tri">{displayTRI(p)}</strong></td>
+                    <td><strong className="invp-amt-return">{fmt(p.total_maturity_amount)}</strong></td>
+                    <td>{p.payment_mode || 'Cash'}</td>
                     <td>
-                      <span style={{ fontFamily:'monospace', fontSize:'0.72rem', background:'var(--bg-table-head)', padding:'2px 8px', borderRadius:4, fontWeight:700 }}>
-                        {formatSmiStatus(p)}
-                      </span>
+                      <span className="invp-smi-pill">{formatSmiStatus(p)}</span>
                     </td>
                     <td>{approvalBadge(p.approval_status)}</td>
-                    <td style={{ fontSize:'0.78rem', whiteSpace:'nowrap' }}>
-                      {(p.investment_date || p.created_at || '').slice(0, 10)}
-                    </td>
+                    <td className="invp-td-date">{formatPlanDate(p)}</td>
                     <td>
                       {p.approval_status === 'Approved' ? (
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => setBranchReceiptIrn(p.irn)}
-                          title="Print receipt"
-                        >
+                        <button type="button" className="invp-receipt-btn" onClick={() => setBranchReceiptIrn(p.irn)}>
                           🧾 Receipt
                         </button>
                       ) : (
-                        <span style={{ color:'var(--text-muted)' }}>—</span>
+                        <span className="invp-muted">—</span>
                       )}
                     </td>
                     {isAdmin && (
                       <td>
-                        <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-                          <button className="btn btn-outline btn-sm" onClick={() => openView(p)} title="View">👁</button>
-                          <button className="btn btn-outline btn-sm" onClick={() => openEdit(p)} title="Edit">✎</button>
-                          <button className="btn btn-outline btn-sm" onClick={() => setReceiptIrn(p.irn)} title="Bond">📜</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => deletePlan(p)} title="Delete">✕</button>
+                        <div className="invp-admin-actions">
+                          <button type="button" className="invp-icon-btn" onClick={() => openView(p)} title="View">👁</button>
+                          <button type="button" className="invp-icon-btn" onClick={() => openEdit(p)} title="Edit">✎</button>
+                          <button type="button" className="invp-icon-btn" onClick={() => setReceiptIrn(p.irn)} title="Bond">📜</button>
+                          <button type="button" className="invp-icon-btn invp-icon-btn--danger" onClick={() => deletePlan(p)} title="Delete">✕</button>
                         </div>
                       </td>
                     )}
                   </tr>
                 ))}
-                {filtered.length === 0 && (
+                {!paged.length && (
                   <tr>
-                    <td colSpan={isAdmin ? 14 : 13} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>
+                    <td colSpan={isAdmin ? 14 : 13} className="invp-empty">
                       {search ? `No results for "${search}"` : 'No plans found'}
                     </td>
                   </tr>
@@ -619,7 +658,39 @@ function PlanList() {
             </table>
           </div>
         )}
-      </Panel>
+
+        {!loading && filtered.length > 0 && (
+          <div className="invp-pagination">
+            <span className="invp-page-info">
+              Showing {rangeStart} to {rangeEnd} of {filtered.length} plan{filtered.length !== 1 ? 's' : ''}
+            </span>
+            <div className="invp-page-right">
+              <div className="invp-page-btns">
+                <button type="button" className="invp-page-btn" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>‹</button>
+                {Array.from({ length: totalPages }, (_, idx) => idx + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                  .reduce((acc, p, idx, arr) => {
+                    if (idx > 0 && p - arr[idx - 1] > 1) acc.push('…');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, idx) => (
+                    typeof p === 'number' ? (
+                      <button key={p} type="button" className={`invp-page-btn${page === p ? ' active' : ''}`} onClick={() => setPage(p)}>{p}</button>
+                    ) : (
+                      <span key={`e-${idx}`} className="invp-page-ellipsis">…</span>
+                    )
+                  ))}
+                <button type="button" className="invp-page-btn" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>›</button>
+              </div>
+              <select className="invp-page-size" value={pageSize} disabled>
+                <option value={10}>10 / page</option>
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+
       <PlanAdminModals
         viewPlan={viewPlan}
         editPlan={editPlan}
@@ -630,8 +701,8 @@ function PlanList() {
         onEditChange={(k, v) => setEditForm(f => ({ ...f, [k]: v }))}
         onSaveEdit={saveEdit}
       />
-      {receiptIrn && <PrintReceipt irn={receiptIrn} onClose={()=>setReceiptIrn(null)} />}
-      {branchReceiptIrn && <BranchReceipt irn={branchReceiptIrn} onClose={()=>setBranchReceiptIrn(null)} />}
+      {receiptIrn && <PrintReceipt irn={receiptIrn} onClose={() => setReceiptIrn(null)} />}
+      {branchReceiptIrn && <BranchReceipt irn={branchReceiptIrn} onClose={() => setBranchReceiptIrn(null)} />}
     </>
   );
 }
@@ -772,7 +843,7 @@ function NewPlanForm({ type, onDone, preset }) {
             <Select value={monthly} onChange={e=>setMonthly(e.target.value)}>
               <option value="">Select investment amount</option>
               {SIS_AMOUNTS.map(amt => (
-                <option key={amt} value={amt}>{fmt(amt)} → Maturity {fmt(amt * 2)}</option>
+                <option key={amt} value={amt}>{fmt(amt)} → Return On Invest {fmt(amt * 2)}</option>
               ))}
             </Select>
           ) : (
@@ -819,7 +890,7 @@ function NewPlanForm({ type, onDone, preset }) {
           [isSIS ? 'Investment Amount' : 'Monthly Amount',
             <span style={{color:'var(--accent-light)',fontWeight:700}}>{fmt(amountNum)}</span>],
           ['Total Investment',  fmt(total)],
-          ['Maturity Amount',   <span style={{color:'#a5d6a7',fontWeight:800,fontSize:'1.1rem'}}>{fmt(maturity)}</span>],
+          ['Return On Invest',   <span style={{color:'#a5d6a7',fontWeight:800,fontSize:'1.1rem'}}>{fmt(maturity)}</span>],
           ['ROI',               <span style={{color:'var(--accent-light)',fontWeight:700}}>{roi.label}</span>],
           ['Payment Mode',      payMode],
           ...(payMode === 'UPI' ? [
@@ -927,7 +998,7 @@ function MISContribution() {
                 <div><span style={{color:'var(--text-muted)'}}>Monthly: </span><strong>{fmt(plan.monthly_amount)}</strong></div>
                 <div><span style={{color:'var(--text-muted)'}}>TRI: </span><strong style={{color:'var(--warning)'}}>{fmt(calcTRI(plan))}</strong></div>
                 <div><span style={{color:'var(--text-muted)'}}>Next Due: </span><strong style={{color:plan.is_overdue?'var(--danger)':'var(--text-primary)'}}>{plan.next_due_date||'—'}{plan.is_overdue?' ⚠️':''}</strong></div>
-                <div><span style={{color:'var(--text-muted)'}}>Maturity: </span><strong style={{color:'var(--success)'}}>{fmt(plan.total_maturity_amount)}</strong></div>
+                <div><span style={{color:'var(--text-muted)'}}>Return On Invest: </span><strong style={{color:'var(--success)'}}>{fmt(plan.total_maturity_amount)}</strong></div>
               </div>
 
               {/* Payment amount box — with or without penalty */}
@@ -1096,7 +1167,7 @@ function ApproveInvestment({ onNavigate, onPrintReceipt }) {
                 <th>Monthly</th>
                 <th>Branch Balance</th>
                 <th>Total</th>
-                <th>Maturity</th>
+                <th>Return On Invest</th>
                 <th>Actions</th>
               </tr>
             </thead>

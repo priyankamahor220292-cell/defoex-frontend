@@ -50,7 +50,7 @@ export default function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/"      element={<Navigate to="/dashboard" replace />} />
 
-      <Route path="/dashboard"       element={<Wrap><DashboardRouter /></Wrap>} />
+      <Route path="/dashboard/*"     element={<Wrap><DashboardRouter /></Wrap>} />
       <Route path="/members/*"       element={<Wrap><MembersPage /></Wrap>} />
       <Route path="/investments/*"   element={<Wrap><InvestmentsPage /></Wrap>} />
       <Route path="/approvals"       element={<Wrap><ApprovalsPage /></Wrap>} />

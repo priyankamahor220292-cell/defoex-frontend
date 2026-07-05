@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import Panel from '../../components/Panel/Panel';
 import Loading from '../../components/Loading/Loading';
 import Modal from '../../components/Modal/Modal';
 import RegistrationForm from './RegistrationForm';
@@ -9,54 +8,83 @@ import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import './MembersPage.css';
 
+const formatJoinDate = (value) => {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
 export default function MembersPage() {
-  const [view, setView] = useState('list'); // 'list' | 'create' | 'approved'
+  const [view, setView] = useState('list');
   return (
-    <div className="page-enter">
-      <div className="page-header">
-        <div><h1>Investor Management</h1><p className="text-muted">Manage investor registrations and approvals</p></div>
-        <div style={{display:'flex',gap:8}}>
-          <button className={`btn ${view==='list'    ?'btn-primary':'btn-outline'}`} onClick={()=>setView('list')}>List Investors</button>
-          <button className={`btn ${view==='create'  ?'btn-primary':'btn-outline'}`} onClick={()=>setView('create')}>+ New Registration</button>
-          <button className={`btn ${view==='approved'?'btn-primary':'btn-outline'}`} onClick={()=>setView('approved')}>Approved Investor</button>
+    <div className="ip-page page-enter">
+      <div className="ip-page-header">
+        <div>
+          <h1>Investor Management</h1>
+          <p className="text-muted">Manage investor registrations and approvals</p>
+        </div>
+        <div className="ip-header-actions">
+          <button type="button" className={`ip-header-btn${view === 'list' ? ' primary' : ''}`} onClick={() => setView('list')}>
+            📋 List Investors
+          </button>
+          <button type="button" className={`ip-header-btn outline${view === 'create' ? ' active' : ''}`} onClick={() => setView('create')}>
+            + New Registration
+          </button>
+          <button type="button" className={`ip-header-btn outline${view === 'approved' ? ' active' : ''}`} onClick={() => setView('approved')}>
+            ✓ Approved Investor
+          </button>
         </div>
       </div>
-      {view === 'list'     && <ListInvestors onView={() => setView('list')} />}
-      {view === 'create'   && <NewRegistration onDone={() => setView('approved')} onCancel={() => setView('list')} />}
+      {view === 'list' && <ListInvestors />}
+      {view === 'create' && <NewRegistration onDone={() => setView('approved')} onCancel={() => setView('list')} />}
       {view === 'approved' && <ApprovedInvestors />}
     </div>
   );
 }
 
-/* ══ LIST INVESTORS ══ */
 function ListInvestors() {
-  const [data,    setData]    = useState({ items:[], total:0, pages:1 });
+  const [data, setData] = useState({ items: [], total: 0, pages: 1, summary: {} });
   const [loading, setLoading] = useState(true);
-  const [search,  setSearch]  = useState('');
-  const [dateFrom,setDateFrom]= useState('');
-  const [dateTo,  setDateTo]  = useState('');
-  const [page,    setPage]    = useState(1);
-  const [detail,  setDetail]  = useState(null);
-  const { user }              = useAuth();
-  const isAdmin               = user?.role === 'superadmin';
+  const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [menuOpen, setMenuOpen] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'superadmin';
 
-  const load = useCallback((pg=1) => {
+  const load = useCallback((pg = page) => {
     setLoading(true);
-    api.get('/api/registration/list', { params:{ page:pg, date_from:dateFrom, date_to:dateTo } })
+    api.get('/api/registration/list', { params: { page: pg, date_from: dateFrom, date_to: dateTo } })
       .then(r => setData(r.data.data || {}))
       .catch(() => toast.error('Failed to load investors'))
       .finally(() => setLoading(false));
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, page]);
 
-  useEffect(() => { load(1); }, [load]);
+  useEffect(() => { load(page); }, [load, page]);
 
-  // Search by Investor ID
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [menuOpen]);
+
   const searchResult = search
-    ? (data.items||[]).filter(m =>
+    ? (data.items || []).filter(m =>
         m.investor_id?.toLowerCase().includes(search.toLowerCase()) ||
         m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
         m.mobile?.includes(search))
-    : (data.items||[]);
+    : (data.items || []);
+
+  const summary = data.summary || {};
+  const totalRecords = data.total || 0;
+  const totalPages = Math.max(1, data.pages || 1);
+  const rangeStart = totalRecords ? (page - 1) * 20 + 1 : 0;
+  const rangeEnd = Math.min(page * 20, totalRecords);
 
   const blacklist = async (m) => {
     if (!isAdmin) return toast.error('Only Admin can blacklist');
@@ -64,183 +92,293 @@ function ListInvestors() {
     try {
       await api.post(`/api/registration/${m.id}/blacklist`);
       toast.success(`${m.full_name} blacklisted`);
+      setMenuOpen(null);
       load(page);
-    } catch(e) { toast.error(e.response?.data?.message || 'Failed'); }
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed');
+    }
+  };
+
+  const statusClass = (m) => {
+    if (m.is_blacklisted || m.status === 'Blacklisted') return 'blacklist';
+    if (m.status === 'Active') return 'active';
+    return 'inactive';
+  };
+
+  const displayStatus = (m) => {
+    if (m.is_blacklisted || m.status === 'Blacklisted') return 'Blacklisted';
+    return m.status || 'Not Active';
   };
 
   return (
     <>
-      <Panel title="List of Investors" subtitle="Filtered by date of joining">
-        {/* Search box — Find by Investor ID */}
-        <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
-          <input style={{flex:'1 1 200px',padding:'8px 12px',border:'1px solid var(--border)',borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontSize:'0.85rem'}}
-            placeholder="🔍 Search by Investor ID / Name / Mobile"
-            value={search} onChange={e=>setSearch(e.target.value)} />
-          <input type="date" style={{padding:'8px 10px',border:'1px solid var(--border)',borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontSize:'0.82rem'}}
-            value={dateFrom} onChange={e=>setDateFrom(e.target.value)} />
-          <span style={{alignSelf:'center',color:'var(--text-muted)',fontSize:'0.82rem'}}>to</span>
-          <input type="date" style={{padding:'8px 10px',border:'1px solid var(--border)',borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontSize:'0.82rem'}}
-            value={dateTo} onChange={e=>setDateTo(e.target.value)} />
-          <button className="btn btn-primary" onClick={()=>load(1)}>Search</button>
-          {search && <button className="btn btn-outline" onClick={()=>setSearch('')}>✕</button>}
+      {!loading && (
+        <div className="grid-4 ip-summary">
+          <div className="ip-stat-card">
+            <div className="ip-stat-icon ip-stat-icon--blue">👥</div>
+            <div>
+              <div className="ip-stat-label">Total Investors</div>
+              <div className="ip-stat-value">{summary.total ?? totalRecords}</div>
+              <div className="ip-stat-sub">All Registered Investors</div>
+            </div>
+          </div>
+          <div className="ip-stat-card">
+            <div className="ip-stat-icon ip-stat-icon--green">✅</div>
+            <div>
+              <div className="ip-stat-label">Active Investors</div>
+              <div className="ip-stat-value">{summary.active ?? 0}</div>
+              <div className="ip-stat-sub">Currently Active</div>
+            </div>
+          </div>
+          <div className="ip-stat-card">
+            <div className="ip-stat-icon ip-stat-icon--orange">⏳</div>
+            <div>
+              <div className="ip-stat-label">Pending Approval</div>
+              <div className="ip-stat-value">{summary.pending ?? 0}</div>
+              <div className="ip-stat-sub">Awaiting Approval</div>
+            </div>
+          </div>
+          <div className="ip-stat-card">
+            <div className="ip-stat-icon ip-stat-icon--red">🚫</div>
+            <div>
+              <div className="ip-stat-label">Blacklisted Investors</div>
+              <div className="ip-stat-value">{summary.blacklisted ?? 0}</div>
+              <div className="ip-stat-sub">Blacklisted Accounts</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="ip-table-wrap">
+        <div className="ip-toolbar">
+          <div className="ip-search-wrap">
+            <span className="ip-search-ico">🔍</span>
+            <input
+              className="ip-search-input"
+              placeholder="Search by Investor ID, Name or Mobile"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <input
+            type="date"
+            className="ip-date-input"
+            value={dateFrom}
+            onChange={e => setDateFrom(e.target.value)}
+          />
+          <span className="ip-date-sep">to</span>
+          <input
+            type="date"
+            className="ip-date-input"
+            value={dateTo}
+            onChange={e => setDateTo(e.target.value)}
+          />
+          <button type="button" className="btn btn-primary ip-search-btn" onClick={() => { setPage(1); load(1); }}>
+            Search
+          </button>
         </div>
 
         {loading ? <Loading /> : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Sr. No</th><th>Investor ID</th><th>Investor Name</th>
-                <th>Father Name</th><th>Mobile</th><th>Date of Joining</th>
-                <th>Adviser Name</th><th>Adviser ID</th><th>Status</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {searchResult.map((m,i) => (
-                <tr key={m.id}>
-                  <td>{i+1}</td>
-                  <td><code style={{fontFamily:'monospace',fontSize:'0.78rem',background:'var(--primary-glow)',color:'var(--primary)',padding:'2px 7px',borderRadius:4}}>{m.investor_id}</code></td>
-                  <td><strong>{m.full_name}</strong></td>
-                  <td>{m.father_spouse_name||'—'}</td>
-                  <td>{m.mobile}</td>
-                  <td style={{fontSize:'0.78rem'}}>{m.date_of_joining}</td>
-                  <td style={{fontSize:'0.82rem'}}>{m.adviser_name||'—'}</td>
-                  <td><code style={{fontFamily:'monospace',fontSize:'0.75rem'}}>{m.adviser_code}</code></td>
-                  <td>
-                    <span style={{fontSize:'0.72rem',fontWeight:700,padding:'2px 9px',borderRadius:10,
-                      background:m.status==='Active'?'var(--success-bg)':m.is_blacklisted?'var(--danger-bg)':'var(--warning-bg)',
-                      color:     m.status==='Active'?'var(--success)':  m.is_blacklisted?'var(--danger)':    'var(--warning)'}}>
-                      {m.is_blacklisted?'Blacklisted':m.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{display:'flex',gap:4}}>
-                      <button className="btn btn-outline btn-sm" onClick={()=>setDetail(m)}>View</button>
-                      {isAdmin && !m.is_blacklisted && (
-                        <button className="btn btn-danger btn-sm" onClick={()=>blacklist(m)}>Blacklist</button>
-                      )}
-                    </div>
-                  </td>
+          <div className="ip-table-scroll">
+            <table className="ip-table">
+              <thead>
+                <tr>
+                  <th>Sr. No</th>
+                  <th>Investor ID</th>
+                  <th>Investor Name</th>
+                  <th>Father Name</th>
+                  <th>Mobile</th>
+                  <th>Date of Joining</th>
+                  <th>Adviser Name</th>
+                  <th>Adviser ID</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-              {searchResult.length===0 && (
-                <tr><td colSpan={10} style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
-                  {search ? `No results for "${search}"` : 'No investors found'}
-                </td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {searchResult.map((m, i) => (
+                  <tr key={m.id}>
+                    <td className="ip-td-num">{rangeStart + i}</td>
+                    <td><span className="ip-id-chip">{m.investor_id}</span></td>
+                    <td><strong>{m.full_name}</strong></td>
+                    <td>{m.father_spouse_name || '—'}</td>
+                    <td>{m.mobile || '—'}</td>
+                    <td className="ip-td-date">{formatJoinDate(m.date_of_joining)}</td>
+                    <td>{m.adviser_name || '—'}</td>
+                    <td><span className="ip-id-chip">{m.adviser_code || '—'}</span></td>
+                    <td>
+                      <span className={`ip-status-pill ${statusClass(m)}`}>{displayStatus(m)}</span>
+                    </td>
+                    <td>
+                      <div className="ip-actions" onClick={e => e.stopPropagation()}>
+                        <button type="button" className="ip-action-btn ip-action-btn--view" onClick={() => setDetail(m)}>
+                          👁 View
+                        </button>
+                        <div className="ip-menu-wrap">
+                          <button
+                            type="button"
+                            className="ip-icon-btn"
+                            onClick={() => setMenuOpen(menuOpen === m.id ? null : m.id)}
+                          >
+                            ⋯
+                          </button>
+                          {menuOpen === m.id && (
+                            <div className="ip-menu">
+                              <button type="button" onClick={() => { setDetail(m); setMenuOpen(null); }}>View Details</button>
+                              {isAdmin && !m.is_blacklisted && (
+                                <button type="button" className="danger" onClick={() => blacklist(m)}>Blacklist</button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {isAdmin && !m.is_blacklisted && (
+                          <button type="button" className="ip-action-btn ip-action-btn--blacklist" onClick={() => blacklist(m)}>
+                            Blacklist
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!searchResult.length && (
+                  <tr><td colSpan={10} className="ip-empty">{search ? `No results for "${search}"` : 'No investors found'}</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
-      </Panel>
 
-      {/* More Details Modal → All Details + List All Plan */}
-      <Modal open={!!detail} onClose={()=>setDetail(null)} title="Investor Details" size="lg">
-        {detail && <InvestorDetail investor={detail} onClose={()=>setDetail(null)} />}
+        {!loading && totalRecords > 0 && (
+          <div className="ip-pagination">
+            <span className="ip-page-info">
+              Showing {rangeStart} to {rangeEnd} of {totalRecords} investor{totalRecords !== 1 ? 's' : ''}
+            </span>
+            <div className="ip-page-right">
+              <div className="ip-page-btns">
+                <button type="button" className="ip-page-btn" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>‹</button>
+                {Array.from({ length: totalPages }, (_, idx) => idx + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                  .reduce((acc, p, idx, arr) => {
+                    if (idx > 0 && p - arr[idx - 1] > 1) acc.push('…');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, idx) => (
+                    typeof p === 'number' ? (
+                      <button key={p} type="button" className={`ip-page-btn${page === p ? ' active' : ''}`} onClick={() => setPage(p)}>{p}</button>
+                    ) : (
+                      <span key={`e-${idx}`} className="ip-page-ellipsis">…</span>
+                    )
+                  ))}
+                <button type="button" className="ip-page-btn" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>›</button>
+              </div>
+              <select className="ip-page-size" value={pageSize} disabled>
+                <option value={10}>10 / page</option>
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Modal open={!!detail} onClose={() => setDetail(null)} title="Investor Details" size="lg">
+        {detail && <InvestorDetail investor={detail} onClose={() => setDetail(null)} />}
       </Modal>
     </>
   );
 }
 
-/* ══ INVESTOR DETAIL MODAL ══ */
 function InvestorDetail({ investor: m, onClose }) {
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
 
   useEffect(() => {
-    api.get('/api/investment-plans/list', { params:{ investor_id: m.investor_id } })
+    api.get('/api/investment-plans/list', { params: { investor_id: m.investor_id } })
       .then(r => setPlans(r.data.data?.items || []))
       .catch(() => {})
       .finally(() => setLoadingPlans(false));
   }, [m.investor_id]);
 
-  const fmt = n => '\u20b9' + (n||0).toLocaleString('en-IN');
+  const fmt = n => '₹' + (n || 0).toLocaleString('en-IN');
 
   return (
     <div>
-      {/* 1. All Details of Investor */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px 16px',marginBottom:20}}>
+      <div className="ip-detail-grid">
         {[
-          ['Investor ID',    m.investor_id], ['Full Name',      m.full_name],
-          ['Father Name',    m.father_spouse_name||'—'], ['Mobile',         m.mobile],
-          ['Email',          m.email||'—'], ['Date of Birth',  m.date_of_birth||'—'],
-          ['Date of Joining',m.date_of_joining], ['City',          m.corr_city||'—'],
-          ['State',          m.corr_state||'—'], ['Aadhar No.',    m.aadhar_number ? `XXXX-${m.aadhar_number.slice(-4)}` : '—'],
-          ['PAN No.',        m.pan_number||'—'], ['Adviser ID',    m.adviser_code],
-          ['Nominee Name',   m.nominee_name||'—'], ['Relation',    m.nominee_relationship||'—'],
-          ['Bank',           m.bank_name||'—'], ['Account No.',   m.account_number||'—'],
-          ['Member Type',    m.member_type||'Investor'], ['Member Fees', fmt(m.member_fees||650)],
-          ['Payment Mode',   m.payment_mode||'—'], ['Status',       m.status||m.approval_status],
-        ].map(([k,v]) => (
-          <div key={k} style={{padding:'5px 0',borderBottom:'1px solid var(--border)'}}>
-            <div style={{fontSize:'0.72rem',color:'var(--text-muted)'}}>{k}</div>
-            <div style={{fontSize:'0.82rem',fontWeight:600}}>{v}</div>
+          ['Investor ID', m.investor_id], ['Full Name', m.full_name],
+          ['Father Name', m.father_spouse_name || '—'], ['Mobile', m.mobile],
+          ['Email', m.email || '—'], ['Date of Birth', m.date_of_birth || '—'],
+          ['Date of Joining', formatJoinDate(m.date_of_joining)], ['City', m.corr_city || '—'],
+          ['State', m.corr_state || '—'], ['Aadhar No.', m.aadhar_number ? `XXXX-${m.aadhar_number.slice(-4)}` : '—'],
+          ['PAN No.', m.pan_number || '—'], ['Adviser ID', m.adviser_code],
+          ['Nominee Name', m.nominee_name || '—'], ['Relation', m.nominee_relationship || '—'],
+          ['Bank', m.bank_name || '—'], ['Account No.', m.account_number || '—'],
+          ['Member Type', m.member_type || 'Investor'], ['Member Fees', fmt(m.member_fees || 650)],
+          ['Payment Mode', m.payment_mode || '—'], ['Status', m.status || m.approval_status],
+        ].map(([k, v]) => (
+          <div key={k} className="ip-detail-row">
+            <span>{k}</span>
+            <strong>{v}</strong>
           </div>
         ))}
       </div>
 
-      {/* 2. List All Plan */}
-      <div style={{fontWeight:700,marginBottom:10,borderTop:'1px solid var(--border)',paddingTop:14}}>
-        Investment Plans
-      </div>
+      <div className="ip-plans-title">Investment Plans</div>
       {loadingPlans ? <Loading /> : plans.length === 0 ? (
-        <div style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:'0.85rem'}}>No plans yet</div>
+        <div className="ip-empty">No plans yet</div>
       ) : (
-        <table className="data-table">
-          <thead><tr><th>IRN</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Maturity</th><th>ROI</th><th>Status</th></tr></thead>
-          <tbody>
-            {plans.map(p => (
-              <tr key={p.id}>
-                <td><code style={{fontFamily:'monospace',fontSize:'0.75rem',color:'var(--success)'}}>{p.irn}</code></td>
-                <td><strong>{p.plan_name}</strong></td>
-                <td><strong style={{color:'var(--primary)'}}>{fmt(p.monthly_amount)}</strong></td>
-                <td>{fmt(p.total_investment_amount)}</td>
-                <td><strong style={{color:'var(--success)'}}>{fmt(p.total_maturity_amount)}</strong></td>
-                <td>{p.roi_display}</td>
-                <td><span style={{fontSize:'0.72rem',fontWeight:700,padding:'2px 8px',borderRadius:10,
-                  background:p.approval_status==='Approved'?'var(--success-bg)':'var(--warning-bg)',
-                  color:p.approval_status==='Approved'?'var(--success)':'var(--warning)'}}>{p.approval_status}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="ip-table-scroll">
+          <table className="ip-table">
+            <thead><tr><th>IRN</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Return On Invest</th><th>ROI</th><th>Status</th></tr></thead>
+            <tbody>
+              {plans.map(p => (
+                <tr key={p.id}>
+                  <td><span className="ip-id-chip">{p.irn}</span></td>
+                  <td><strong>{p.plan_name}</strong></td>
+                  <td><strong>{fmt(p.monthly_amount)}</strong></td>
+                  <td>{fmt(p.total_investment_amount)}</td>
+                  <td><strong>{fmt(p.total_maturity_amount)}</strong></td>
+                  <td>{p.roi_display}</td>
+                  <td><span className={`ip-status-pill ${p.approval_status === 'Approved' ? 'active' : 'inactive'}`}>{p.approval_status}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-      <div style={{marginTop:14,display:'flex',justifyContent:'flex-end'}}>
-        <button className="btn btn-outline" onClick={onClose}>Close</button>
+      <div className="ip-detail-actions">
+        <button type="button" className="btn btn-outline" onClick={onClose}>Close</button>
       </div>
     </div>
   );
 }
 
-/* ══ NEW INVESTOR REGISTRATION ══ */
 function NewRegistration({ onDone, onCancel }) {
   return (
-    <Panel title="New Investor Registration">
+    <div className="ip-reg-wrap">
       <RegistrationForm onSuccess={onDone} onCancel={onCancel} />
-    </Panel>
+    </div>
   );
 }
 
-/* ══ APPROVED INVESTORS ══ */
 function ApprovedInvestors() {
-  const [pending,  setPending]  = useState([]);
+  const [pending, setPending] = useState([]);
   const [approved, setApproved] = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [credModal,setCredModal]= useState(null);
-  const { user }               = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [credModal, setCredModal] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
     Promise.allSettled([
       api.get('/api/registration/pending'),
       api.get('/api/registration/list'),
-    ]).then(([p,a]) => {
-      if(p.status==='fulfilled') setPending(p.value.data.data?.items||[]);
-      if(a.status==='fulfilled') setApproved(a.value.data.data?.items||[]);
-    }).finally(()=>setLoading(false));
+    ]).then(([p, a]) => {
+      if (p.status === 'fulfilled') setPending(p.value.data.data?.items || []);
+      if (a.status === 'fulfilled') setApproved(a.value.data.data?.items || []);
+    }).finally(() => setLoading(false));
   }, []);
 
-  useEffect(()=>{load();},[load]);
+  useEffect(() => { load(); }, [load]);
 
-  // Flowchart: Click Approve → Generate Username & Password → Display in Toaster
   const approve = async (member, action) => {
     try {
       const { data } = await api.post(`/api/registration/approve/${member.id}`, { action });
@@ -258,7 +396,7 @@ function ApprovedInvestors() {
         toast.success(`Rejected: ${member.full_name}`);
       }
       load();
-    } catch(e) {
+    } catch (e) {
       toast.error(e.response?.data?.message || 'Action failed');
     }
   };
@@ -266,65 +404,75 @@ function ApprovedInvestors() {
   if (loading) return <Loading />;
 
   return (
-    <>
-      {/* Pending Approval */}
+    <div className="ip-approved-wrap">
       {pending.length > 0 && (
-        <Panel title={`Pending Approval (${pending.length})`} className="mb-3"
-          subtitle="Click Approve to generate Username & Password (DEFIN202601 format)">
-          <table className="data-table">
+        <div className="ip-approved-panel">
+          <div className="ip-approved-panel__head">
+            <h3>Pending Approval ({pending.length})</h3>
+            <p>Click Approve to generate Username & Password (DEFIN format)</p>
+          </div>
+          <div className="ip-table-scroll">
+            <table className="ip-table">
+              <thead>
+                <tr><th>#</th><th>Investor ID</th><th>Full Name</th><th>Mobile</th><th>Adviser</th><th>Date</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {pending.map((m, i) => (
+                  <tr key={m.id}>
+                    <td className="ip-td-num">{i + 1}</td>
+                    <td><span className="ip-id-chip">{m.investor_id}</span></td>
+                    <td><strong>{m.full_name}</strong></td>
+                    <td>{m.mobile}</td>
+                    <td><span className="ip-id-chip">{m.adviser_code}</span></td>
+                    <td className="ip-td-date">{formatJoinDate(m.date_of_joining)}</td>
+                    <td>
+                      <div className="ip-actions">
+                        <button type="button" className="ip-action-btn ip-action-btn--approve" onClick={() => approve(m, 'approve')}>✓ Approve</button>
+                        <button type="button" className="ip-action-btn ip-action-btn--blacklist" onClick={() => approve(m, 'reject')}>✕ Reject</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div className="ip-approved-panel">
+        <div className="ip-approved-panel__head">
+          <h3>Approved Investors ({approved.length})</h3>
+        </div>
+        <div className="ip-table-scroll">
+          <table className="ip-table">
             <thead>
-              <tr><th>#</th><th>Investor ID</th><th>Full Name</th><th>Mobile</th><th>Adviser</th><th>Date</th><th>Actions</th></tr>
+              <tr><th>#</th><th>Investor ID</th><th>Name</th><th>Mobile</th><th>Adviser</th><th>DOJ</th><th>Status</th></tr>
             </thead>
             <tbody>
-              {pending.map((m,i) => (
-                <tr key={m.id}>
-                  <td>{i+1}</td>
-                  <td><code style={{fontFamily:'monospace',fontSize:'0.78rem'}}>{m.investor_id}</code></td>
-                  <td><strong>{m.full_name}</strong></td>
+              {approved.map((m, i) => (
+                <tr key={m.id || i}>
+                  <td className="ip-td-num">{i + 1}</td>
+                  <td><span className="ip-id-chip">{m.investor_id}</span></td>
+                  <td><strong>{m.full_name || m.investor_name}</strong></td>
                   <td>{m.mobile}</td>
-                  <td><code style={{fontFamily:'monospace',fontSize:'0.75rem'}}>{m.adviser_code}</code></td>
-                  <td style={{fontSize:'0.78rem'}}>{m.date_of_joining}</td>
+                  <td><span className="ip-id-chip">{m.adviser_code}</span></td>
+                  <td className="ip-td-date">{formatJoinDate(m.date_of_joining)}</td>
                   <td>
-                    <div style={{display:'flex',gap:6}}>
-                      <button className="btn btn-success btn-sm" onClick={()=>approve(m,'approve')}>✓ Approve</button>
-                      <button className="btn btn-danger btn-sm"  onClick={()=>approve(m,'reject')}>✕ Reject</button>
-                    </div>
+                    <span className={`ip-status-pill ${m.status === 'Active' ? 'active' : 'inactive'}`}>
+                      {m.status || 'Not Active'}
+                    </span>
                   </td>
                 </tr>
               ))}
+              {!approved.length && (
+                <tr><td colSpan={7} className="ip-empty">No approved investors yet</td></tr>
+              )}
             </tbody>
           </table>
-        </Panel>
-      )}
-
-      {/* Approved list */}
-      <Panel title={`Approved Investors (${approved.length})`}>
-        <table className="data-table">
-          <thead>
-            <tr><th>#</th><th>Investor ID</th><th>Name</th><th>Mobile</th><th>Adviser</th><th>DOJ</th><th>Status</th></tr>
-          </thead>
-          <tbody>
-            {approved.map((m,i) => (
-              <tr key={m.id||i}>
-                <td>{i+1}</td>
-                <td><code style={{fontFamily:'monospace',fontSize:'0.78rem',background:'var(--primary-glow)',color:'var(--primary)',padding:'2px 7px',borderRadius:4}}>{m.investor_id}</code></td>
-                <td><strong>{m.full_name||m.investor_name}</strong></td>
-                <td>{m.mobile}</td>
-                <td><code style={{fontFamily:'monospace',fontSize:'0.75rem'}}>{m.adviser_code}</code></td>
-                <td style={{fontSize:'0.78rem'}}>{m.date_of_joining}</td>
-                <td><span style={{fontSize:'0.72rem',fontWeight:700,padding:'2px 9px',borderRadius:10,
-                  background:m.status==='Active'?'var(--success-bg)':'var(--warning-bg)',
-                  color:m.status==='Active'?'var(--success)':'var(--warning)'}}>{m.status||'Not Active'}</span></td>
-              </tr>
-            ))}
-            {approved.length===0&&(
-              <tr><td colSpan={7} style={{textAlign:'center',padding:32,color:'var(--text-muted)'}}>No approved investors yet</td></tr>
-            )}
-          </tbody>
-        </table>
-      </Panel>
+        </div>
+      </div>
 
       <InvestorCredentialsModal creds={credModal} onClose={() => setCredModal(null)} />
-    </>
+    </div>
   );
 }
