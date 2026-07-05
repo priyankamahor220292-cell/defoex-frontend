@@ -263,13 +263,25 @@
 .detail-row strong {
   text-align: right;
   word-break: break-all;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.detail-val-primary {
+  color: var(--primary) !important;
+  font-size: 1rem;
+}
+
+.detail-val-success {
+  color: var(--success) !important;
+  font-size: 1rem;
 }
 
 .wallet-impact {
   background: var(--bg-sidebar);
   border-radius: var(--border-radius-sm);
-  padding: 12px;
-  margin-top: 8px;
+  padding: 12px 14px;
+  margin-top: 10px;
 }
 
 .wi-row {

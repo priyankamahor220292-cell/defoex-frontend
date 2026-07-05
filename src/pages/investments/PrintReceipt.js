@@ -160,9 +160,11 @@ export default function PrintReceipt({ irn, onClose }) {
   const today = new Date().toLocaleDateString('en-IN', {
     timeZone: 'Asia/Kolkata', day: '2-digit', month: 'long', year: 'numeric',
   });
-  const tenureLabel = plan.plan_tenure === '3Y' ? '3 Years (36 Months)'
-                    : plan.plan_tenure === '5Y' ? '5 Years (60 Months)'
-                    : '7 Years (84 Months)';
+  const tenureLabel = plan.plan_type === 'SIS'
+    ? '7.5 Years (90 Months)'
+    : plan.plan_tenure === '3Y' ? '3 Years (36 Months)'
+    : plan.plan_tenure === '5Y' ? '5 Years (60 Months)'
+    : '7 Years (84 Months)';
 
   // ── RENDER ──────────────────────────────────────────────────────
   return (

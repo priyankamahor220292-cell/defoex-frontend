@@ -7,7 +7,16 @@ import Alert from '../../components/Alert/Alert';
 import { memberService } from '../../services/memberService';
 import { investmentService } from '../../services/investmentService';
 import toast from 'react-hot-toast';
+import { formatLocalDate } from '../../utils/dateTime';
 import './ApprovalsPage.css';
+
+function normalizeInvestmentList(res) {
+  const d = res.data;
+  if (Array.isArray(d.data)) {
+    return { items: d.data, total: d.total ?? d.data.length };
+  }
+  return d.data || { items: [], total: 0 };
+}
 
 export default function ApprovalsPage() {
   const [tab, setTab] = useState(0);
@@ -16,7 +25,9 @@ export default function ApprovalsPage() {
 
   const refreshCounts = useCallback(() => {
     memberService.pending(1).then(r => setRegCount(r.data.data?.total || 0)).catch(() => {});
-    investmentService.list({ status: 'Pending' }).then(r => setPlanCount(r.data.data?.total || 0)).catch(() => {});
+    investmentService.list({ status: 'Pending' })
+      .then(r => setPlanCount(normalizeInvestmentList(r).total || 0))
+      .catch(() => {});
   }, []);
 
   useEffect(() => { refreshCounts(); }, [refreshCounts]);
@@ -305,7 +316,7 @@ function InvApprovals({ onRefresh }) {
   const load = useCallback(() => {
     setLoading(true);
     investmentService.list({ status: 'Pending' })
-      .then(r => setData(r.data.data || {}))
+      .then(r => setData(normalizeInvestmentList(r)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -404,43 +415,66 @@ function InvApprovals({ onRefresh }) {
       </Panel>
 
       {/* Plan Detail Modal */}
-      <Modal open={!!detail} onClose={() => setDetail(null)} title="Investment Plan Details" size="md">
+      <Modal open={!!detail} onClose={() => setDetail(null)} title="Investment Plan Details" size="lg">
         {detail && (
-          <div>
+          <div className="detail-modal">
             <div className="plan-detail-grid">
               <div className="detail-section">
                 <div className="ds-title">Plan Information</div>
                 {[
-                  ['IRN',             detail.irn],
-                  ['Investor ID',     detail.investor_id],
-                  ['Plan Name',       detail.plan_name],
-                  ['Plan Type',       detail.plan_type],
-                  ['Tenure',          detail.plan_tenure],
-                  ['Investment Date', detail.investment_date],
-                  ['Due Date',        detail.due_date],
-                  ['Maturity Date',   detail.maturity_date],
-                  ['Installments',    detail.total_installments ? `${detail.total_installments} months` : null],
-                ].map(([k,v]) => v && (
+                  ['Plan ID',                    detail.irn],
+                  ['Investor ID',                detail.investor_id],
+                  ['Plan Name',                  detail.plan_name],
+                  ['Plan Type',                  detail.plan_type],
+                  ['Tenure',                     detail.plan_tenure],
+                  ['Investment Date',            formatLocalDate(detail.investment_date)],
+                  ['Due Date',                   formatLocalDate(detail.due_date)],
+                  ['Return of Investment Date',    formatLocalDate(detail.maturity_date)],
+                  ['Installments',               detail.total_installments ? `${detail.total_installments} months` : null],
+                ].map(([k, v]) => v && v !== '—' && (
                   <div key={k} className="detail-row"><span>{k}</span><strong>{v}</strong></div>
                 ))}
               </div>
               <div className="detail-section">
                 <div className="ds-title">Financial Details</div>
-                <div className="detail-row"><span>Monthly Amount</span>
-                  <strong style={{color:'var(--primary)',fontSize:'1rem'}}>{fmt(detail.monthly_amount)}</strong></div>
-                <div className="detail-row"><span>Total Investment</span>
-                  <strong>{fmt(detail.total_investment_amount)}</strong></div>
-                <div className="detail-row"><span>Maturity Amount</span>
-                  <strong style={{color:'var(--success)',fontSize:'1rem'}}>{fmt(detail.total_maturity_amount)}</strong></div>
-                <div className="detail-row"><span>Payment Mode</span>
-                  <strong>{detail.payment_mode}</strong></div>
-                <div className="detail-row"><span>Adviser Code</span>
-                  <strong><code>{detail.adviser_code}</code></strong></div>
-                <div className="ds-title" style={{marginTop:12}}>Wallet Impact on Approval</div>
+                <div className="detail-row">
+                  <span>Monthly Amount</span>
+                  <strong className="detail-val-primary">{fmt(detail.monthly_amount)}</strong>
+                </div>
+                <div className="detail-row">
+                  <span>Total Investment</span>
+                  <strong>{fmt(detail.total_investment_amount)}</strong>
+                </div>
+                <div className="detail-row">
+                  <span>Return of Investment</span>
+                  <strong className="detail-val-success">{fmt(detail.total_maturity_amount)}</strong>
+                </div>
+                <div className="detail-row">
+                  <span>Payment Mode</span>
+                  <strong>{detail.payment_mode}</strong>
+                </div>
+                <div className="detail-row">
+                  <span>Adviser Code</span>
+                  <strong><code className="id-code adv">{detail.adviser_code}</code></strong>
+                </div>
+
+                <div className="ds-title" style={{ marginTop: 12 }}>Wallet Impact on Approval</div>
+                {detail.branch_name && (
+                  <div className="detail-row">
+                    <span>Branch</span>
+                    <strong>{detail.branch_name}</strong>
+                  </div>
+                )}
+                {detail.branch_current_balance != null && (
+                  <div className="detail-row">
+                    <span>Branch Balance</span>
+                    <strong>{fmt(detail.branch_current_balance)}</strong>
+                  </div>
+                )}
                 <div className="wallet-impact">
                   <div className="wi-row">
                     <span>Current Balance</span>
-                    <span className="wi-arrow">−{fmt(detail.monthly_amount)}</span>
+                    <span className="wi-arrow">-{fmt(detail.monthly_amount)}</span>
                   </div>
                   <div className="wi-row">
                     <span>Cash Wallet</span>

@@ -13,7 +13,7 @@ import { formatLocal } from '../../utils/dateTime';
 import './UsersPage.css';
 
 const ROLES = ['superadmin', 'branchmanager', 'advisor', 'member'];
-const PORTAL_CRUD_ROLES = ['advisor', 'member'];
+const PORTAL_CRUD_ROLES = ['branchmanager', 'advisor', 'member'];
 
 const emptyForm = (role = 'branchmanager') => ({
   username: '',
@@ -26,7 +26,7 @@ const emptyForm = (role = 'branchmanager') => ({
   is_active: true,
 });
 
-const roleLabel = { advisor: 'Adviser', member: 'Investor' };
+const roleLabel = { branchmanager: 'Branch Manager', advisor: 'Adviser', member: 'Investor' };
 
 export default function UsersPage() {
   const { user } = useAuth();
@@ -95,7 +95,7 @@ export default function UsersPage() {
   const setEdit = (k, v) => setEditForm(f => ({ ...f, [k]: v }));
 
   const openCreate = () => {
-    const role = roleFilter === 'advisor' || roleFilter === 'member' ? roleFilter : 'branchmanager';
+    const role = ['branchmanager', 'advisor', 'member'].includes(roleFilter) ? roleFilter : 'branchmanager';
     setForm(emptyForm(role));
     setShowCreate(true);
   };
@@ -116,13 +116,16 @@ export default function UsersPage() {
   const create = async () => {
     const req = ['username','email','password','full_name','role'];
     if (req.some(f => !form[f])) return toast.error('Fill all required fields');
+    if (form.role === 'branchmanager' && !form.branch_id) {
+      return toast.error('Select a branch for the branch manager');
+    }
     setSaving(true);
     try {
       const r = await api.post('/api/users/', { ...form, branch_id: form.branch_id ? parseInt(form.branch_id) : null });
       toast.success('User created!');
       showCreds(r.data.data, 'New User Credentials');
       setShowCreate(false);
-      setForm(emptyForm(roleFilter === 'advisor' || roleFilter === 'member' ? roleFilter : 'branchmanager'));
+      setForm(emptyForm(['branchmanager', 'advisor', 'member'].includes(roleFilter) ? roleFilter : 'branchmanager'));
       load();
     } catch (e) {
       toast.error(e.response?.data?.message || 'Failed');
@@ -133,6 +136,9 @@ export default function UsersPage() {
     if (!editUser) return;
     const req = ['username', 'email', 'full_name'];
     if (req.some(f => !editForm[f]?.trim())) return toast.error('Fill all required fields');
+    if (editUser.role === 'branchmanager' && !editForm.branch_id) {
+      return toast.error('Select a branch for the branch manager');
+    }
     setEditSaving(true);
     try {
       await api.put(`/api/users/${editUser.id}`, {
@@ -160,7 +166,7 @@ export default function UsersPage() {
   };
 
   const deleteUser = async (u) => {
-    const label = u.role === 'member' ? 'investor' : 'advisor';
+    const label = roleLabel[u.role] || u.role;
     if (!window.confirm(`Delete ${u.full_name}? This removes their portal login (${label} account only).`)) return;
     try {
       await api.delete(`/api/users/${u.id}`);
@@ -173,13 +179,17 @@ export default function UsersPage() {
 
   const canManage = (u) => PORTAL_CRUD_ROLES.includes(u.role);
 
-  const createLabel = roleFilter === 'advisor'
+  const createLabel = roleFilter === 'branchmanager'
+    ? '+ Create Branch Manager'
+    : roleFilter === 'advisor'
     ? '+ Create Adviser'
     : roleFilter === 'member'
       ? '+ Create Investor'
       : '+ Create User';
 
-  const panelTitle = roleFilter === 'advisor'
+  const panelTitle = roleFilter === 'branchmanager'
+    ? 'Branch Manager Accounts'
+    : roleFilter === 'advisor'
     ? 'Adviser Portal Users'
     : roleFilter === 'member'
       ? 'Investor Portal Users'
@@ -224,6 +234,7 @@ export default function UsersPage() {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
         {[
           ['all', 'All Users'],
+          ['branchmanager', 'Branch Managers'],
           ['advisor', 'Advisers'],
           ['member', 'Investors'],
         ].map(([value, label]) => (
@@ -304,7 +315,7 @@ export default function UsersPage() {
           {roleFilter === 'all' ? (
             <Field label="Role" required>
               <Select value={form.role} onChange={e => set('role', e.target.value)}>
-                {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                {ROLES.map(r => <option key={r} value={r}>{roleLabel[r] || r}</option>)}
               </Select>
             </Field>
           ) : (
@@ -314,7 +325,7 @@ export default function UsersPage() {
           )}
         </div>
         {(form.role === 'branchmanager' || form.role === 'advisor' || form.role === 'member') && (
-          <Field label="Branch">
+          <Field label={form.role === 'branchmanager' ? 'Branch *' : 'Branch'}>
             <Select value={form.branch_id} onChange={e => set('branch_id', e.target.value)}>
               <option value="">— Select Branch —</option>
               {branches.map(b => <option key={b.id} value={b.id}>{b.branch_name} ({b.branch_code})</option>)}
@@ -339,7 +350,7 @@ export default function UsersPage() {
               <Field label="Email" required><Input type="email" value={editForm.email} onChange={e => setEdit('email', e.target.value)} /></Field>
               <Field label="Mobile"><Input value={editForm.mobile} onChange={e => setEdit('mobile', e.target.value)} maxLength={10} /></Field>
             </div>
-            <Field label="Branch">
+            <Field label={editUser.role === 'branchmanager' ? 'Branch *' : 'Branch'}>
               <Select value={editForm.branch_id} onChange={e => setEdit('branch_id', e.target.value)}>
                 <option value="">— Select Branch —</option>
                 {branches.map(b => <option key={b.id} value={b.id}>{b.branch_name} ({b.branch_code})</option>)}
@@ -351,9 +362,11 @@ export default function UsersPage() {
                 <option value="inactive">Inactive</option>
               </Select>
             </Field>
-            <Alert type="info" className="mt-2">
-              Updates here also sync to the linked {editUser.role === 'member' ? 'investor' : 'adviser'} profile when a match is found.
-            </Alert>
+            {(editUser.role === 'advisor' || editUser.role === 'member') && (
+              <Alert type="info" className="mt-2">
+                Updates here also sync to the linked {editUser.role === 'member' ? 'investor' : 'adviser'} profile when a match is found.
+              </Alert>
+            )}
             <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
               <button className="btn btn-outline" onClick={() => setEditUser(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={saveEdit} disabled={editSaving}>

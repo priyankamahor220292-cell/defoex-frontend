@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Panel from '../../components/Panel/Panel';
+import Modal from '../../components/Modal/Modal';
 import Field, { Input, Select } from '../../components/Field/Field';
 import Loading from '../../components/Loading/Loading';
 import Alert from '../../components/Alert/Alert';
@@ -8,14 +9,18 @@ import { investmentService } from '../../services/investmentService';
 import { useAuth } from '../../context/AuthContext';
 import PrintReceipt from './PrintReceipt';
 import BranchReceipt from './BranchReceipt';
+import PaymentModeSection, { validateUpiPayment } from '../../components/PaymentMode/PaymentModeSection';
 import toast from 'react-hot-toast';
-import { todayISOLocal, addMonthsISO } from '../../utils/dateTime';
+import { todayISOLocal, addMonthsISO, formatLocal, formatLocalDate } from '../../utils/dateTime';
 
 const MIS_TABLE = {
   '3Y': { months:36, label:'3 Years' },
   '5Y': { months:60, label:'5 Years' },
   '7Y': { months:84, label:'7 Years' },
 };
+// Official MIS monthly amounts — ₹100 to ₹30,000 per month
+const MIS_MIN = 100;
+const MIS_MAX = 30000;
 const MIS_AMOUNTS = [
   100, 200, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000,
   5000, 6000, 7500, 9000, 10000, 12000, 15000, 20000, 25000, 30000,
@@ -36,6 +41,22 @@ const calcMISRow = (monthly) => ({
   '7Y': { total: monthly * 84, maturity: calcMaturity(monthly, '7Y', 84) },
 });
 const MIS_RATE_CHART = MIS_AMOUNTS.map(calcMISRow);
+
+const SIS_PLAN = { tenure: '7.5Y', months: 90, label: '7.5 Years', roi: '100%' };
+const SIS_AMOUNTS = [
+  5000, 10000, 20000, 30000, 40000, 50000,
+  100000, 150000, 200000, 250000, 300000, 350000,
+  400000, 450000, 500000, 600000, 700000, 800000,
+  900000, 1000000,
+];
+const SIS_RATE_CHART = SIS_AMOUNTS.map(amt => ({
+  investment: amt,
+  maturity: amt * 2,
+}));
+
+const displayTenure = (plan) =>
+  plan?.plan_tenure_display || (plan?.plan_type === 'SIS' ? '7.5Y' : plan?.plan_tenure);
+
 const fmt = n => '\u20b9' + (n||0).toLocaleString('en-IN');
 
 export default function InvestmentsPage() {
@@ -51,6 +72,7 @@ export default function InvestmentsPage() {
           <button className={`btn ${view==='mis'?'btn-primary':'btn-outline'}`} onClick={()=>setView('mis')}>New MIS Plan</button>
           <button className={`btn ${view==='sis'?'btn-primary':'btn-outline'}`} onClick={()=>setView('sis')}>New SIS Plan</button>
           <button className={`btn ${view==='chart'?'btn-primary':'btn-outline'}`} onClick={()=>setView('chart')}>MIS Rate Chart</button>
+          <button className={`btn ${view==='sischart'?'btn-primary':'btn-outline'}`} onClick={()=>setView('sischart')}>SIS Rate Chart</button>
           <button className={`btn ${view==='contrib'?'btn-primary':'btn-outline'}`} onClick={()=>setView('contrib')}>MIS Contribution</button>
           <button className={`btn ${view==='approve'?'btn-primary':'btn-outline'}`} onClick={()=>setView('approve')}>Approve Investment</button>
         </div>
@@ -58,8 +80,9 @@ export default function InvestmentsPage() {
 
       {view === 'list'    && <PlanList onView={setView} />}
       {view === 'mis'     && <NewPlanForm type="MIS" preset={chartPreset} onDone={()=>setView('approve')} />}
-      {view === 'sis'     && <NewPlanForm type="SIS" onDone={()=>setView('approve')} />}
+      {view === 'sis'     && <NewPlanForm type="SIS" preset={chartPreset?.type === 'SIS' ? chartPreset : null} onDone={()=>setView('approve')} />}
       {view === 'chart'   && <MISRateChart onSelect={(amt, tenure) => { setChartPreset({ monthly: amt, tenure }); setView('mis'); }} />}
+      {view === 'sischart'&& <SISRateChart onSelect={(amt) => { setChartPreset({ monthly: amt, type: 'SIS' }); setView('sis'); }} />}
       {view === 'contrib' && <MISContribution />}
       {view === 'approve' && <ApproveInvestment />}
     </div>
@@ -69,7 +92,7 @@ export default function InvestmentsPage() {
 /* ══ MIS RATE CHART ══ */
 function MISRateChart({ onSelect }) {
   return (
-    <Panel title="MIS (Monthly Investment Scheme)" subtitle="Official rate chart — Defoex Infratech Pvt. Ltd.">
+    <Panel title="MIS (Monthly Investment Scheme)" subtitle={`Monthly installment: ${fmt(MIS_MIN)} to ${fmt(MIS_MAX)} per month`}>
       <div style={{overflowX:'auto'}}>
         <table className="data-table">
           <thead>
@@ -117,6 +140,7 @@ function MISRateChart({ onSelect }) {
         </table>
       </div>
       <div style={{marginTop:14,padding:'12px 16px',background:'var(--bg-input)',borderRadius:'var(--border-radius-sm)',fontSize:'0.82rem',color:'var(--text-muted)'}}>
+        <strong>Monthly range:</strong> {fmt(MIS_MIN)} to {fmt(MIS_MAX)} per month &nbsp;|&nbsp;
         <strong>ROI:</strong> 3 Year — 16.67% &nbsp;|&nbsp; 5 Year — 33.33% &nbsp;|&nbsp; 7 Year — 35.71%
         &nbsp;|&nbsp; Click a tenure button to create a plan with that amount.
       </div>
@@ -124,14 +148,204 @@ function MISRateChart({ onSelect }) {
   );
 }
 
+/* ══ SIS RATE CHART ══ */
+function SISRateChart({ onSelect }) {
+  return (
+    <Panel title="SIS (Systematic Investment Scheme)" subtitle="7.5 Year lump sum — maturity amount is double the investment">
+      <div style={{overflowX:'auto'}}>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>S.No.</th>
+              <th>Investment Amount</th>
+              <th>Maturity Amount (2×)</th>
+              <th>ROI</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {SIS_RATE_CHART.map((row, i) => (
+              <tr key={row.investment}>
+                <td>{i + 1}</td>
+                <td><strong style={{color:'var(--primary)'}}>{fmt(row.investment)}</strong></td>
+                <td><strong style={{color:'var(--success)'}}>{fmt(row.maturity)}</strong></td>
+                <td style={{fontWeight:700,color:'var(--primary)'}}>100%</td>
+                <td>
+                  <button className="btn btn-outline btn-sm" onClick={() => onSelect(row.investment)}>
+                    Create SIS
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{marginTop:14,padding:'12px 16px',background:'var(--bg-input)',borderRadius:'var(--border-radius-sm)',fontSize:'0.82rem',color:'var(--text-muted)'}}>
+        <strong>Tenure:</strong> 7.5 Years (90 months) &nbsp;|&nbsp;
+        <strong>ROI:</strong> 100% (amount doubles at maturity) &nbsp;|&nbsp;
+        <strong>Range:</strong> ₹5,000 to ₹10,00,000 (multiples of ₹1,000)
+      </div>
+    </Panel>
+  );
+}
+
+const PAY_MODES = ['Cash', 'Cheque', 'DD', 'UPI', 'NEFT'];
+
+const emptyPlanEdit = () => ({
+  monthly_amount: '',
+  plan_tenure: '3Y',
+  payment_mode: 'Cash',
+  investment_date: todayISOLocal(),
+  approval_status: 'Pending',
+  status: 'Active',
+  installments_paid: '0',
+});
+
+/* ══ ADMIN PLAN VIEW / EDIT ══ */
+function PlanDetailRows({ plan }) {
+  if (!plan) return null;
+  const rows = [
+    ['IRN', plan.irn],
+    ['Investor ID', plan.investor_id],
+    ['Investor Name', plan.investor_name || '—'],
+    ['Mobile', plan.investor_mobile || '—'],
+    ['Branch', plan.branch_name || '—'],
+    ['Plan Type', plan.plan_type],
+    ['Tenure', displayTenure(plan)],
+    ['Monthly Amount', fmt(plan.monthly_amount)],
+    ['Total Investment', fmt(plan.total_investment_amount)],
+    ['Maturity', fmt(plan.total_maturity_amount)],
+    ['ROI', plan.roi_display],
+    ['Payment Mode', plan.payment_mode],
+    ['Investment Date', formatLocalDate(plan.investment_date)],
+    ['Maturity Date', formatLocalDate(plan.maturity_date)],
+    ['Installments', `${plan.installments_paid || 0} / ${plan.total_installments || 0}`],
+    ['Approval', plan.approval_status],
+    ['Status', plan.status],
+    ['Created', formatLocal(plan.created_at)],
+  ];
+  return (
+    <div style={{ display: 'grid', gap: 8 }}>
+      {rows.map(([label, value]) => (
+        <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: '0.85rem', borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>
+          <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+          <strong style={{ textAlign: 'right' }}>{value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PlanAdminModals({ viewPlan, editPlan, editForm, editSaving, onCloseView, onCloseEdit, onEditChange, onSaveEdit }) {
+  return (
+    <>
+      <Modal open={!!viewPlan} onClose={onCloseView} title="Investment Plan Details" size="md">
+        <PlanDetailRows plan={viewPlan} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          <button type="button" className="btn btn-primary" onClick={onCloseView}>Close</button>
+        </div>
+      </Modal>
+
+      <Modal open={!!editPlan} onClose={onCloseEdit} title={`Edit Plan — ${editPlan?.irn || ''}`} size="md">
+        {editPlan && (
+          <>
+            <Alert type="info" className="mb-2">
+              {editPlan.approval_status === 'Pending'
+                ? 'Pending plans: amount and tenure can be changed.'
+                : 'Approved plans: only status, payment mode, dates, and installment count can be updated here.'}
+            </Alert>
+            <div className="reg-form-row">
+              <Field label={editPlan.plan_type === 'SIS' ? 'Investment Amount (₹)' : 'Monthly Amount (₹)'} required>
+                {editPlan.plan_type === 'SIS' ? (
+                  <Select
+                    value={editForm.monthly_amount}
+                    onChange={e => onEditChange('monthly_amount', e.target.value)}
+                    disabled={editPlan.approval_status !== 'Pending'}
+                  >
+                    {SIS_AMOUNTS.map(amt => (
+                      <option key={amt} value={amt}>{fmt(amt)}</option>
+                    ))}
+                  </Select>
+                ) : (
+                  <Select
+                    value={editForm.monthly_amount}
+                    onChange={e => onEditChange('monthly_amount', e.target.value)}
+                    disabled={editPlan.approval_status !== 'Pending'}
+                  >
+                    {MIS_AMOUNTS.map(amt => (
+                      <option key={amt} value={amt}>{fmt(amt)} / month</option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+              {editPlan.plan_type === 'MIS' && (
+                <Field label="Tenure">
+                  <Select
+                    value={editForm.plan_tenure}
+                    onChange={e => onEditChange('plan_tenure', e.target.value)}
+                    disabled={editPlan.approval_status !== 'Pending'}
+                  >
+                    {Object.keys(MIS_TABLE).map(t => <option key={t} value={t}>{MIS_TABLE[t].label}</option>)}
+                  </Select>
+                </Field>
+              )}
+            </div>
+            <div className="reg-form-row">
+              <Field label="Payment Mode">
+                <Select value={editForm.payment_mode} onChange={e => onEditChange('payment_mode', e.target.value)}>
+                  {PAY_MODES.map(m => <option key={m}>{m}</option>)}
+                </Select>
+              </Field>
+              <Field label="Investment Date">
+                <Input type="date" value={editForm.investment_date} onChange={e => onEditChange('investment_date', e.target.value)} />
+              </Field>
+            </div>
+            <div className="reg-form-row">
+              <Field label="Approval Status">
+                <Select value={editForm.approval_status} onChange={e => onEditChange('approval_status', e.target.value)}>
+                  {['Pending', 'Approved', 'Rejected'].map(s => <option key={s}>{s}</option>)}
+                </Select>
+              </Field>
+              <Field label="Plan Status">
+                <Select value={editForm.status} onChange={e => onEditChange('status', e.target.value)}>
+                  {['Active', 'Completed', 'Cancelled'].map(s => <option key={s}>{s}</option>)}
+                </Select>
+              </Field>
+            </div>
+            <Field label="Installments Paid">
+              <Input
+                type="number"
+                min="0"
+                value={editForm.installments_paid}
+                onChange={e => onEditChange('installments_paid', e.target.value)}
+              />
+            </Field>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button type="button" className="btn btn-outline" onClick={onCloseEdit}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={onSaveEdit} disabled={editSaving}>
+                {editSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+    </>
+  );
+}
+
 /* ══ LIST INVESTMENT ══ */
 function PlanList() {
   const { user } = useAuth();
+  const isAdmin = user?.role === 'superadmin';
   const [data, setData] = useState({ items:[], total:0 });
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [receiptIrn, setReceiptIrn] = useState(null);
   const [branchReceiptIrn, setBranchReceiptIrn] = useState(null);
+  const [viewPlan, setViewPlan] = useState(null);
+  const [editPlan, setEditPlan] = useState(null);
+  const [editForm, setEditForm] = useState(emptyPlanEdit());
+  const [editSaving, setEditSaving] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -151,6 +365,57 @@ function PlanList() {
       load();
     } catch (e) {
       toast.error(e.response?.data?.message || 'Failed to delete plan');
+    }
+  };
+
+  const openView = async (plan) => {
+    try {
+      const r = await investmentService.get(plan.id);
+      setViewPlan(r.data.data);
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to load plan');
+    }
+  };
+
+  const openEdit = async (plan) => {
+    try {
+      const r = await investmentService.get(plan.id);
+      const p = r.data.data;
+      setEditPlan(p);
+      setEditForm({
+        monthly_amount: String(p.monthly_amount ?? ''),
+        plan_tenure: p.plan_tenure || '3Y',
+        payment_mode: p.payment_mode || 'Cash',
+        investment_date: (p.investment_date || todayISOLocal()).slice(0, 10),
+        approval_status: p.approval_status || 'Pending',
+        status: p.status || 'Active',
+        installments_paid: String(p.installments_paid ?? 0),
+      });
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to load plan');
+    }
+  };
+
+  const saveEdit = async () => {
+    if (!editPlan) return;
+    setEditSaving(true);
+    try {
+      await investmentService.update(editPlan.id, {
+        monthly_amount: parseFloat(editForm.monthly_amount),
+        plan_tenure: editForm.plan_tenure,
+        payment_mode: editForm.payment_mode,
+        investment_date: editForm.investment_date,
+        approval_status: editForm.approval_status,
+        status: editForm.status,
+        installments_paid: parseInt(editForm.installments_paid, 10) || 0,
+      });
+      toast.success(`Plan ${editPlan.irn} updated`);
+      setEditPlan(null);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to update plan');
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -197,7 +462,9 @@ function PlanList() {
                   {/* Investment Status: 3M-1of36, 5M-1of60, 6M-1of84 */}
                   <td>
                     <span style={{fontFamily:'monospace',fontSize:'0.75rem',background:'var(--bg-table-head)',padding:'2px 8px',borderRadius:4,fontWeight:700}}>
-                      {p.plan_tenure==='3Y'?'3M':p.plan_tenure==='5Y'?'5M':'7M'}-{p.installments_paid||0}of{p.total_installments}
+                      {p.plan_type === 'SIS'
+                        ? `7.5Y-1of1`
+                        : `${p.plan_tenure==='3Y'?'3M':p.plan_tenure==='5Y'?'5M':'7M'}-${p.installments_paid||0}of${p.total_installments}`}
                     </span>
                   </td>
                   <td>
@@ -209,11 +476,17 @@ function PlanList() {
                   </td>
                   <td>
                     <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                      {user?.role === 'superadmin'
+                      {isAdmin && (
+                        <>
+                          <button className="btn btn-outline btn-sm" onClick={() => openView(p)}>View</button>
+                          <button className="btn btn-outline btn-sm" onClick={() => openEdit(p)}>Edit</button>
+                        </>
+                      )}
+                      {isAdmin
                         ? <button className="btn btn-primary btn-sm" onClick={()=>setReceiptIrn(p.irn)} title="Print Investment Bond">📜 Bond</button>
                         : <button className="btn btn-outline btn-sm" onClick={()=>setBranchReceiptIrn(p.irn)} title="Print Receipt">🧾 Receipt</button>
                       }
-                      {user?.role === 'superadmin' && (
+                      {isAdmin && (
                         <button className="btn btn-danger btn-sm" onClick={() => deletePlan(p)}>Delete</button>
                       )}
                     </div>
@@ -229,6 +502,16 @@ function PlanList() {
           </table>
         )}
       </Panel>
+      <PlanAdminModals
+        viewPlan={viewPlan}
+        editPlan={editPlan}
+        editForm={editForm}
+        editSaving={editSaving}
+        onCloseView={() => setViewPlan(null)}
+        onCloseEdit={() => setEditPlan(null)}
+        onEditChange={(k, v) => setEditForm(f => ({ ...f, [k]: v }))}
+        onSaveEdit={saveEdit}
+      />
       {receiptIrn && <PrintReceipt irn={receiptIrn} onClose={()=>setReceiptIrn(null)} />}
       {branchReceiptIrn && <BranchReceipt irn={branchReceiptIrn} onClose={()=>setBranchReceiptIrn(null)} />}
     </>
@@ -237,24 +520,27 @@ function PlanList() {
 
 /* ══ NEW MIS / SIS PLAN FORM ══ */
 function NewPlanForm({ type, onDone, preset }) {
-  const { user }      = useAuth();
+  const isSIS = type === 'SIS';
   const [investorId,  setInvestorId]  = useState('');
   const [investorInfo,setInvestorInfo]= useState(null);
   const [tenure,      setTenure]      = useState('3Y');
-  const [monthly,     setMonthly]     = useState('1000');
+  const [monthly,     setMonthly]     = useState(isSIS ? '5000' : '100');
   const [payMode,     setPayMode]     = useState('Cash');
+  const [txnId,       setTxnId]       = useState('');
+  const [upiApp,      setUpiApp]      = useState('');
   const [invDate,     setInvDate]     = useState(todayISOLocal());
   const [submitting,  setSubmitting]  = useState(false);
 
   useEffect(() => {
     if (preset?.monthly) setMonthly(String(preset.monthly));
-    if (preset?.tenure) setTenure(preset.tenure);
-  }, [preset]);
+    if (preset?.tenure && !isSIS) setTenure(preset.tenure);
+  }, [preset, isSIS]);
 
-  const months   = MIS_TABLE[tenure]?.months || 36;
-  const total    = parseFloat(monthly||0) * months;
-  const maturity = calcMaturity(parseFloat(monthly||0), tenure, months);
-  const roi      = ROI[tenure];
+  const amountNum = parseFloat(monthly || 0);
+  const months   = isSIS ? SIS_PLAN.months : (MIS_TABLE[tenure]?.months || 36);
+  const total    = isSIS ? amountNum : amountNum * months;
+  const maturity = isSIS ? amountNum * 2 : calcMaturity(amountNum, tenure, months);
+  const roi      = isSIS ? { label: '100%' } : ROI[tenure];
 
   const getDetails = async () => {
     if (!investorId.trim()) { toast.error('Enter Investor ID'); return; }
@@ -269,19 +555,31 @@ function NewPlanForm({ type, onDone, preset }) {
   };
 
   const submit = async () => {
-    if (!investorId || !monthly || parseFloat(monthly)<=0) {
-      toast.error('Enter Investor ID and Monthly Amount'); return;
+    if (!investorId || !monthly || amountNum <= 0) {
+      toast.error(isSIS ? 'Enter Investor ID and Investment Amount' : 'Enter Investor ID and Monthly Amount');
+      return;
     }
+    const upiErr = validateUpiPayment(payMode, txnId, upiApp);
+    if (upiErr) { toast.error(upiErr); return; }
     setSubmitting(true);
     try {
-      await investmentService.create({
-        investor_id:    investorId.trim(),
-        plan_tenure:    tenure,
-        monthly_amount: parseFloat(monthly),
-        payment_mode:   payMode,
-        investment_date:invDate,
-        plan_type:      type,
-      });
+      const payload = {
+        investor_id:     investorId.trim(),
+        payment_mode:    payMode,
+        investment_date: invDate,
+        plan_type:       type,
+      };
+      if (isSIS) {
+        payload.lump_amount = amountNum;
+      } else {
+        payload.plan_tenure = tenure;
+        payload.monthly_amount = amountNum;
+      }
+      if (payMode === 'UPI') {
+        payload.transaction_id = txnId.trim();
+        payload.upi_app = upiApp;
+      }
+      await investmentService.create(payload);
       toast.success(`${type} Plan created! Go to Approve Investment tab.`);
       onDone();
     } catch(e) {
@@ -323,39 +621,64 @@ function NewPlanForm({ type, onDone, preset }) {
         <div style={{fontWeight:700,marginBottom:10}}>Add Plan</div>
 
         {/* Tenure selector */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:14}}>
-          {Object.entries(MIS_TABLE).map(([key,v]) => (
-            <div key={key}
-              onClick={()=>setTenure(key)}
-              style={{padding:'14px',textAlign:'center',borderRadius:'var(--border-radius-lg)',cursor:'pointer',
-                border:`2px solid ${tenure===key?'var(--primary)':'var(--border)'}`,
-                background:tenure===key?'var(--primary)':'var(--bg-input)'}}>
-              <div style={{fontWeight:700,fontSize:'1rem',color:tenure===key?'#fff':'var(--text-primary)'}}>{type} {key}</div>
-              <div style={{fontSize:'0.78rem',color:tenure===key?'rgba(255,255,255,0.7)':'var(--text-muted)'}}>{v.label}</div>
-              <div style={{fontSize:'0.78rem',color:tenure===key?'rgba(255,255,255,0.8)':'var(--text-muted)'}}>{v.months} Months</div>
-            </div>
-          ))}
-        </div>
+        {isSIS ? (
+          <div style={{padding:'14px',textAlign:'center',borderRadius:'var(--border-radius-lg)',marginBottom:14,
+            border:'2px solid var(--primary)',background:'var(--primary)'}}>
+            <div style={{fontWeight:700,fontSize:'1rem',color:'#fff'}}>SIS 7.5Y</div>
+            <div style={{fontSize:'0.78rem',color:'rgba(255,255,255,0.7)'}}>{SIS_PLAN.label}</div>
+            <div style={{fontSize:'0.78rem',color:'rgba(255,255,255,0.8)'}}>{SIS_PLAN.months} Months · 100% ROI</div>
+          </div>
+        ) : (
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:14}}>
+            {Object.entries(MIS_TABLE).map(([key,v]) => (
+              <div key={key}
+                onClick={()=>setTenure(key)}
+                style={{padding:'14px',textAlign:'center',borderRadius:'var(--border-radius-lg)',cursor:'pointer',
+                  border:`2px solid ${tenure===key?'var(--primary)':'var(--border)'}`,
+                  background:tenure===key?'var(--primary)':'var(--bg-input)'}}>
+                <div style={{fontWeight:700,fontSize:'1rem',color:tenure===key?'#fff':'var(--text-primary)'}}>{type} {key}</div>
+                <div style={{fontSize:'0.78rem',color:tenure===key?'rgba(255,255,255,0.7)':'var(--text-muted)'}}>{v.label}</div>
+                <div style={{fontSize:'0.78rem',color:tenure===key?'rgba(255,255,255,0.8)':'var(--text-muted)'}}>{v.months} Months</div>
+              </div>
+            ))}
+          </div>
+        )}
 
-        <div className="reg-form-row">
-          <Field label={`Monthly Amount (\u20b9) *`}>
-            {type === 'MIS' ? (
-              <Select value={monthly} onChange={e=>setMonthly(e.target.value)}>
-                <option value="">Select monthly installment</option>
-                {MIS_AMOUNTS.map(amt => (
-                  <option key={amt} value={amt}>{fmt(amt)} / month</option>
-                ))}
-              </Select>
-            ) : (
-              <Input type="number" value={monthly} onChange={e=>setMonthly(e.target.value)} placeholder="e.g. 5000" min="1000" step="1000" />
-            )}
-          </Field>
-          <Field label="Payment Mode">
-            <Select value={payMode} onChange={e=>setPayMode(e.target.value)}>
-              {['Cash','Cheque','DD','UPI','NEFT'].map(m=><option key={m}>{m}</option>)}
+        <Field label={isSIS ? `Investment Amount (\u20b9) *` : `Monthly Amount (\u20b9) *`}>
+          {!isSIS && (
+            <div style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:6}}>
+              Official chart: {fmt(MIS_MIN)} to {fmt(MIS_MAX)} per month
+            </div>
+          )}
+          {isSIS ? (
+            <Select value={monthly} onChange={e=>setMonthly(e.target.value)}>
+              <option value="">Select investment amount</option>
+              {SIS_AMOUNTS.map(amt => (
+                <option key={amt} value={amt}>{fmt(amt)} → Maturity {fmt(amt * 2)}</option>
+              ))}
             </Select>
-          </Field>
-        </div>
+          ) : (
+            <Select value={monthly} onChange={e=>setMonthly(e.target.value)}>
+              <option value="">Select monthly installment</option>
+              {MIS_AMOUNTS.map(amt => (
+                <option key={amt} value={amt}>{fmt(amt)} / month</option>
+              ))}
+            </Select>
+          )}
+        </Field>
+
+        <PaymentModeSection
+          payMode={payMode}
+          onPayModeChange={mode => {
+            setPayMode(mode);
+            if (mode === 'Cash') { setTxnId(''); setUpiApp(''); }
+          }}
+          transactionId={txnId}
+          onTransactionIdChange={setTxnId}
+          upiApp={upiApp}
+          onUpiAppChange={setUpiApp}
+        />
+
         <Field label="Investment Date">
           <Input type="date" value={invDate} onChange={e=>setInvDate(e.target.value)} />
         </Field>
@@ -373,13 +696,19 @@ function NewPlanForm({ type, onDone, preset }) {
       <div style={{background:'var(--bg-sidebar)',borderRadius:'var(--border-radius-lg)',padding:20,position:'sticky',top:16}}>
         <div style={{fontWeight:700,color:'#fff',marginBottom:16,fontSize:'0.9rem'}}>Plan Preview</div>
         {[
-          ['Plan Tenure',       `${MIS_TABLE[tenure]?.label} (${months} months)`],
-          ['Total Installments', months],
-          ['Monthly Amount',    <span style={{color:'var(--accent-light)',fontWeight:700}}>{fmt(parseFloat(monthly)||0)}</span>],
+          ['Plan Tenure',       isSIS ? `${SIS_PLAN.label} (${SIS_PLAN.months} months)` : `${MIS_TABLE[tenure]?.label} (${months} months)`],
+          ...(isSIS ? [] : [['Total Installments', months]]),
+          [isSIS ? 'Investment Amount' : 'Monthly Amount',
+            <span style={{color:'var(--accent-light)',fontWeight:700}}>{fmt(amountNum)}</span>],
           ['Total Investment',  fmt(total)],
           ['Maturity Amount',   <span style={{color:'#a5d6a7',fontWeight:800,fontSize:'1.1rem'}}>{fmt(maturity)}</span>],
           ['ROI',               <span style={{color:'var(--accent-light)',fontWeight:700}}>{roi.label}</span>],
-          ['First Due Date',    addMonthsISO(invDate, 1)],
+          ['Payment Mode',      payMode],
+          ...(payMode === 'UPI' ? [
+            ['UPI App',         upiApp ? upiApp.charAt(0).toUpperCase() + upiApp.slice(1) : '—'],
+            ['Transaction ID',    <span style={{fontFamily:'monospace',fontSize:'0.78rem'}}>{txnId || '—'}</span>],
+          ] : []),
+          ...(isSIS ? [] : [['First Due Date', addMonthsISO(invDate, 1)]]),
         ].map(([k,v]) => (
           <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid rgba(255,255,255,0.07)',fontSize:'0.82rem'}}>
             <span style={{color:'rgba(255,255,255,0.5)'}}>{k}</span>
