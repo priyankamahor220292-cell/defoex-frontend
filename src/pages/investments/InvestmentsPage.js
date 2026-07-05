@@ -7,12 +7,12 @@ import Alert from '../../components/Alert/Alert';
 import api from '../../services/api';
 import { investmentService } from '../../services/investmentService';
 import { useAuth } from '../../context/AuthContext';
-import PrintReceipt from './PrintReceipt';
 import BranchReceipt from './BranchReceipt';
 import PaymentModeSection, { validateUpiPayment } from '../../components/PaymentMode/PaymentModeSection';
 import toast from 'react-hot-toast';
 import { todayISOLocal, addMonthsISO, formatLocal, formatLocalDate } from '../../utils/dateTime';
 import MemberPortfolio from '../dashboards/member/MemberPortfolio';
+import './InvestmentsPage.css';
 
 const MIS_TABLE = {
   '3Y': { months:36, label:'3 Years' },
@@ -121,9 +121,9 @@ export default function InvestmentsPage() {
           <p className="text-muted">MIS / SIS plan management</p>
         </div>
         <div className="invp-header-actions">
-          <button type="button" className={`invp-header-btn${view === 'list' ? ' primary' : ''}`} onClick={() => setView('list')}>All Plans</button>
-          <button type="button" className={`invp-header-btn outline${view === 'mis' ? ' active' : ''}`} onClick={() => setView('mis')}>New MIS Plan</button>
-          <button type="button" className={`invp-header-btn outline${view === 'sis' ? ' active' : ''}`} onClick={() => setView('sis')}>New SIS Plan</button>
+          <button type="button" className={`invp-header-btn${view === 'list' ? ' primary' : ' outline'}`} onClick={() => setView('list')}>All Plans</button>
+          <button type="button" className={`invp-header-btn outline${view === 'mis' ? ' active' : ''}`} onClick={() => setView('mis')}>+ New MIS Plan</button>
+          <button type="button" className={`invp-header-btn outline${view === 'sis' ? ' active' : ''}`} onClick={() => setView('sis')}>+ New SIS Plan</button>
           <button type="button" className={`invp-header-btn outline${view === 'chart' ? ' active' : ''}`} onClick={() => setView('chart')}>MIS Rate Chart</button>
           <button type="button" className={`invp-header-btn outline${view === 'sischart' ? ' active' : ''}`} onClick={() => setView('sischart')}>SIS Rate Chart</button>
           <button type="button" className={`invp-header-btn outline${view === 'contrib' ? ' active' : ''}`} onClick={() => setView('contrib')}>MIS Contribution</button>
@@ -407,7 +407,6 @@ function PlanList() {
   const [filterStatus, setFilterStatus] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
-  const [receiptIrn, setReceiptIrn] = useState(null);
   const [branchReceiptIrn, setBranchReceiptIrn] = useState(null);
   const [viewPlan, setViewPlan] = useState(null);
   const [editPlan, setEditPlan] = useState(null);
@@ -512,9 +511,24 @@ function PlanList() {
   const formatPlanDate = (p) => {
     const raw = p.investment_date || p.created_at || '';
     if (!raw) return '—';
+    if (/^\d{4}-\d{2}-\d{2}/.test(String(raw))) return String(raw).slice(0, 10);
     const d = new Date(raw);
     if (Number.isNaN(d.getTime())) return String(raw).slice(0, 10);
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const cancelPlan = async (plan) => {
+    if (!window.confirm(`Cancel investment plan ${plan.irn}?`)) return;
+    try {
+      await investmentService.update(plan.id, { status: 'Cancelled' });
+      toast.success(`Plan ${plan.irn} cancelled`);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to cancel plan');
+    }
   };
 
   return (
@@ -578,7 +592,9 @@ function PlanList() {
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </select>
-          <button type="button" className="invp-tool-btn" onClick={load}>↻ Refresh</button>
+          <button type="button" className="invp-tool-btn" onClick={load}>
+            <span className="invp-refresh-ico">↻</span> Refresh
+          </button>
         </div>
 
         {loading ? <Loading /> : (
@@ -640,8 +656,8 @@ function PlanList() {
                         <div className="invp-admin-actions">
                           <button type="button" className="invp-icon-btn" onClick={() => openView(p)} title="View">👁</button>
                           <button type="button" className="invp-icon-btn" onClick={() => openEdit(p)} title="Edit">✎</button>
-                          <button type="button" className="invp-icon-btn" onClick={() => setReceiptIrn(p.irn)} title="Bond">📜</button>
-                          <button type="button" className="invp-icon-btn invp-icon-btn--danger" onClick={() => deletePlan(p)} title="Delete">✕</button>
+                          <button type="button" className="invp-icon-btn invp-icon-btn--danger" onClick={() => deletePlan(p)} title="Delete">🗑</button>
+                          <button type="button" className="invp-icon-btn invp-icon-btn--cancel" onClick={() => cancelPlan(p)} title="Cancel plan">✕</button>
                         </div>
                       </td>
                     )}
@@ -666,7 +682,7 @@ function PlanList() {
             </span>
             <div className="invp-page-right">
               <div className="invp-page-btns">
-                <button type="button" className="invp-page-btn" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>‹</button>
+                <button type="button" className="invp-page-btn invp-page-btn--nav" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Previous</button>
                 {Array.from({ length: totalPages }, (_, idx) => idx + 1)
                   .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
                   .reduce((acc, p, idx, arr) => {
@@ -681,7 +697,7 @@ function PlanList() {
                       <span key={`e-${idx}`} className="invp-page-ellipsis">…</span>
                     )
                   ))}
-                <button type="button" className="invp-page-btn" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>›</button>
+                <button type="button" className="invp-page-btn invp-page-btn--nav" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
               </div>
               <select className="invp-page-size" value={pageSize} disabled>
                 <option value={10}>10 / page</option>
@@ -701,7 +717,6 @@ function PlanList() {
         onEditChange={(k, v) => setEditForm(f => ({ ...f, [k]: v }))}
         onSaveEdit={saveEdit}
       />
-      {receiptIrn && <PrintReceipt irn={receiptIrn} onClose={() => setReceiptIrn(null)} />}
       {branchReceiptIrn && <BranchReceipt irn={branchReceiptIrn} onClose={() => setBranchReceiptIrn(null)} />}
     </>
   );
