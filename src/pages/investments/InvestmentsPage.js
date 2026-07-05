@@ -96,6 +96,7 @@ const approvalBadge = (status) => {
 export default function InvestmentsPage() {
   const [view, setView] = useState('list');
   const [chartPreset, setChartPreset] = useState(null);
+  const [branchReceiptIrn, setBranchReceiptIrn] = useState(null);
   const { user } = useAuth();
 
   if (user?.role === 'member') {
@@ -113,6 +114,7 @@ export default function InvestmentsPage() {
   }
 
   return (
+    <>
     <div className="page-enter">
       <div className="page-header">
         <div><h1>Investment Plans</h1><p className="text-muted">MIS / SIS plan management</p></div>
@@ -133,8 +135,17 @@ export default function InvestmentsPage() {
       {view === 'chart'   && <MISRateChart onSelect={(amt, tenure) => { setChartPreset({ monthly: amt, tenure }); setView('mis'); }} />}
       {view === 'sischart'&& <SISRateChart onSelect={(amt) => { setChartPreset({ monthly: amt, type: 'SIS' }); setView('sis'); }} />}
       {view === 'contrib' && <MISContribution />}
-      {view === 'approve' && <ApproveInvestment />}
+      {view === 'approve' && (
+        <ApproveInvestment
+          onNavigate={setView}
+          onPrintReceipt={setBranchReceiptIrn}
+        />
+      )}
     </div>
+    {branchReceiptIrn && (
+      <BranchReceipt irn={branchReceiptIrn} onClose={() => setBranchReceiptIrn(null)} />
+    )}
+  </>
   );
 }
 
@@ -952,102 +963,201 @@ function MISContribution() {
 }
 
 /* ══ APPROVE INVESTMENT ══ */
-function ApproveInvestment() {
+function ApproveInvestment({ onNavigate, onPrintReceipt }) {
   const { user } = useAuth();
-  const [data,    setData]    = useState({ items:[] });
+  const [data, setData] = useState({ items: [], total: 0 });
   const [loading, setLoading] = useState(true);
-  const [acting,  setActing]  = useState(null);
+  const [acting, setActing] = useState(null);
+  const [lastApproved, setLastApproved] = useState(null);
   const isAdmin = user?.role === 'superadmin';
 
   const load = useCallback(() => {
     setLoading(true);
-    investmentService.list({ status:'Pending' })
-      .then(r => setData(r.data.data || {}))
+    return investmentService.list({ status: 'pending', per_page: 100 })
+      .then(r => setData(r.data.data || { items: [], total: 0 }))
+      .catch(e => toast.error(e.response?.data?.message || 'Failed to load pending plans'))
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
+  const pending = data.items || [];
+  const nextPlanType = lastApproved?.plan_type === 'MIS' ? 'sis' : 'mis';
+
   const act = async (plan, action) => {
+    if (action === 'delete') {
+      if (!window.confirm(`Delete pending plan ${plan.irn}? This cannot be undone.`)) return;
+    }
+
     setActing(plan.id);
     try {
-      if (action === 'reject') {
+      if (action === 'delete') {
         await investmentService.delete(plan.id);
-        toast.success(`Investment plan deleted: ${plan.irn}`);
+        toast.success(`Plan deleted: ${plan.irn}`);
+        setLastApproved(null);
+      } else if (action === 'reject') {
+        await investmentService.approve(plan.id, 'reject');
+        toast.success(`Plan rejected: ${plan.irn}`);
+        setLastApproved(null);
       } else {
-        await investmentService.approve(plan.id, action);
+        const res = await investmentService.approve(plan.id, 'approve');
+        const approved = res.data?.data || plan;
+        setLastApproved(approved);
+        const remaining = pending.filter(x => x.id !== plan.id).length;
         toast.success(
-          `Investment approved! ID: ${plan.irn} — TRI: ${fmt(plan.monthly_amount)} (1st SMI paid)`,
-          { duration: 6000 }
+          remaining > 0
+            ? `Approved ${plan.irn} — ${remaining} more pending`
+            : `Approved ${plan.irn} — TRI: ${fmt(plan.monthly_amount)} (1 of ${plan.total_installments || 1} paid)`,
+          { duration: 5000 }
         );
       }
-      load();
-    } catch(e) {
+      await load();
+    } catch (e) {
       toast.error(e.response?.data?.message || 'Action failed');
-    } finally { setActing(null); }
+    } finally {
+      setActing(null);
+    }
   };
 
+  const allDone = !loading && pending.length === 0;
+
   return (
-    <Panel title="Approve Investment" subtitle="Approve pending plans — 1st installment is collected from branch wallet">
-      {!loading && (data.items||[]).length > 0 && (
+    <Panel
+      title={`Approve Investment${pending.length ? ` (${pending.length} pending)` : ''}`}
+      subtitle="Approve pending plans — 1st installment is collected from branch wallet"
+    >
+      {!loading && pending.length > 0 && (
         <Alert type="info" style={{ marginBottom: 12 }}>
           Approving deducts the <strong>monthly amount</strong> from the branch wallet and marks the 1st SMI as paid (TRI = monthly amount).
           Ensure the branch has sufficient balance before approving.
         </Alert>
       )}
+
+      {lastApproved && allDone && (
+        <Alert type="success" style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            <span>
+              <strong>{lastApproved.irn}</strong> approved — status <strong>1 of {lastApproved.total_installments || 1}</strong>
+            </span>
+            <button className="btn btn-primary btn-sm" onClick={() => onPrintReceipt?.(lastApproved.irn)}>
+              🧾 Print Receipt
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={() => onNavigate?.('list')}>
+              View All Plans
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={() => { setLastApproved(null); onNavigate?.(nextPlanType); }}>
+              New {nextPlanType === 'sis' ? 'SIS' : 'MIS'} Plan
+            </button>
+          </div>
+        </Alert>
+      )}
+
       {loading ? <Loading /> : (
-        <table className="data-table">
-          <thead>
-            <tr><th>#</th><th>IRN</th><th>Investor ID</th><th>Plan</th><th>Monthly</th><th>Branch Balance</th><th>Total</th><th>Maturity</th><th>Actions</th></tr>
-          </thead>
-          <tbody>
-            {(data.items||[]).map((p,i) => {
-              const monthly = parseFloat(p.monthly_amount || 0);
-              const branchBal = parseFloat(p.branch_current_balance ?? 0);
-              const canApprove = branchBal >= monthly;
-              return (
-              <tr key={p.id}>
-                <td>{i+1}</td>
-                <td><code style={{fontFamily:'monospace',fontSize:'0.75rem',color:'var(--success)'}}>{p.irn}</code></td>
-                <td><code style={{fontFamily:'monospace',fontSize:'0.75rem',color:'var(--primary)'}}>{p.investor_id}</code></td>
-                <td><strong>{p.plan_name}</strong></td>
-                <td><strong style={{color:'var(--primary)'}}>{fmt(p.monthly_amount)}</strong></td>
-                <td>
-                  <strong style={{color: canApprove ? 'var(--success)' : 'var(--danger)'}}>
-                    {fmt(branchBal)}
-                  </strong>
-                  {!canApprove && (
-                    <div style={{fontSize:'0.7rem',color:'var(--danger)'}}>Insufficient</div>
-                  )}
-                </td>
-                <td>{fmt(p.total_investment_amount)}</td>
-                <td><strong style={{color:'var(--success)'}}>{fmt(p.total_maturity_amount)}</strong></td>
-                <td>
-                  <div style={{display:'flex',gap:6}}>
-                    <button className="btn btn-success btn-sm"
-                      disabled={acting===p.id || !canApprove}
-                      title={canApprove ? 'Approve plan' : `Need ${fmt(monthly)} in branch wallet`}
-                      onClick={()=>act(p,'approve')}>
-                      {acting===p.id?'...':'✓ Approve'}
-                    </button>
-                    {isAdmin && (
-                      <button className="btn btn-danger btn-sm"
-                        disabled={acting===p.id}
-                        onClick={()=>act(p,'reject')}>
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </td>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>IRN</th>
+                <th>Investor ID</th>
+                <th>Type</th>
+                <th>Plan</th>
+                <th>Monthly</th>
+                <th>Branch Balance</th>
+                <th>Total</th>
+                <th>Maturity</th>
+                <th>Actions</th>
               </tr>
-            );})}
-            {!(data.items||[]).length && (
-              <tr><td colSpan={9} style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
-                No pending investments. Create a plan first.
-              </td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {pending.map((p, i) => {
+                const monthly = parseFloat(p.monthly_amount || 0);
+                const branchBal = parseFloat(p.branch_current_balance ?? 0);
+                const canApprove = branchBal >= monthly;
+                const isActing = acting === p.id;
+                return (
+                  <tr key={p.id} style={i === 0 ? { background: 'rgba(var(--primary-rgb), 0.04)' } : undefined}>
+                    <td>{i + 1}</td>
+                    <td>
+                      <code style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--success)' }}>
+                        {p.irn}
+                      </code>
+                    </td>
+                    <td>
+                      <code style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--primary)' }}>
+                        {p.investor_id}
+                      </code>
+                    </td>
+                    <td>
+                      <span style={{
+                        fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: 8,
+                        background: p.plan_type === 'SIS' ? 'var(--info-bg)' : 'var(--primary-bg, #e8f0fe)',
+                        color: p.plan_type === 'SIS' ? 'var(--info)' : 'var(--primary)',
+                      }}>
+                        {p.plan_type || 'MIS'}
+                      </span>
+                    </td>
+                    <td><strong>{p.plan_name}</strong></td>
+                    <td><strong style={{ color: 'var(--primary)' }}>{fmt(p.monthly_amount)}</strong></td>
+                    <td>
+                      <strong style={{ color: canApprove ? 'var(--success)' : 'var(--danger)' }}>
+                        {fmt(branchBal)}
+                      </strong>
+                      {!canApprove && (
+                        <div style={{ fontSize: '0.7rem', color: 'var(--danger)' }}>Insufficient</div>
+                      )}
+                    </td>
+                    <td>{fmt(p.total_investment_amount)}</td>
+                    <td><strong style={{ color: 'var(--success)' }}>{fmt(p.total_maturity_amount)}</strong></td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button
+                          className="btn btn-success btn-sm"
+                          disabled={isActing || !canApprove}
+                          title={canApprove ? 'Approve plan' : `Need ${fmt(monthly)} in branch wallet`}
+                          onClick={() => act(p, 'approve')}
+                        >
+                          {isActing ? '...' : '✓ Approve'}
+                        </button>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          disabled={isActing}
+                          onClick={() => act(p, 'reject')}
+                        >
+                          Reject
+                        </button>
+                        {isAdmin && (
+                          <button
+                            className="btn btn-danger btn-sm"
+                            disabled={isActing}
+                            onClick={() => act(p, 'delete')}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!pending.length && (
+                <tr>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                    {lastApproved
+                      ? 'All pending plans processed.'
+                      : 'No pending investments. Create a plan first.'}
+                    {!lastApproved && (
+                      <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button className="btn btn-primary btn-sm" onClick={() => onNavigate?.('mis')}>New MIS Plan</button>
+                        <button className="btn btn-outline btn-sm" onClick={() => onNavigate?.('sis')}>New SIS Plan</button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </Panel>
   );
