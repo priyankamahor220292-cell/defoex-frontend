@@ -27,7 +27,30 @@ export const investmentService = {
   create: (data) => api.post('/api/investment-plans/create', data),
   get: (id) => api.get(`/api/investment-plans/${id}`),
   update: (id, data) => api.put(`/api/investment-plans/${id}`, data),
-  approve: (id, action) => api.post(`/api/investment-plans/approve-investment/${id}`, { action }),
+  approve: async (id, action) => {
+    if (!id) {
+      throw Object.assign(new Error('Missing investment id'), {
+        response: { data: { message: 'Cannot approve — plan id missing. Refresh the page.' } },
+      });
+    }
+    const tryApprove = (url) => api.post(url, { action });
+    let res;
+    try {
+      res = await tryApprove(`/api/investment-plans/approve-investment/${id}`);
+    } catch (e) {
+      if (e.response?.status === 404) {
+        res = await tryApprove(`/api/investment-plans/approve/${id}`);
+      } else {
+        throw e;
+      }
+    }
+    if (!res.data?.success) {
+      throw Object.assign(new Error(res.data?.message || 'Approve failed'), {
+        response: { data: res.data },
+      });
+    }
+    return res;
+  },
   delete: (id) => api.delete(`/api/investment-plans/${id}`),
   list: async (params) => {
     const res = await api.get('/api/investment-plans/list', { params });

@@ -969,6 +969,7 @@ function ApproveInvestment({ onNavigate, onPrintReceipt }) {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(null);
   const [lastApproved, setLastApproved] = useState(null);
+  const [lastError, setLastError] = useState('');
   const isAdmin = user?.role === 'superadmin';
 
   const load = useCallback(() => {
@@ -988,22 +989,43 @@ function ApproveInvestment({ onNavigate, onPrintReceipt }) {
     if (action === 'delete') {
       if (!window.confirm(`Delete pending plan ${plan.irn}? This cannot be undone.`)) return;
     }
+    if (!plan?.id) {
+      setLastError('Plan id missing — refresh the page and try again.');
+      toast.error('Plan id missing — refresh the page');
+      return;
+    }
 
     setActing(plan.id);
+    setLastError('');
     try {
       if (action === 'delete') {
         await investmentService.delete(plan.id);
         toast.success(`Plan deleted: ${plan.irn}`);
         setLastApproved(null);
+        setData(prev => ({
+          ...prev,
+          items: (prev.items || []).filter(x => x.id !== plan.id),
+          total: Math.max(0, (prev.total || 0) - 1),
+        }));
       } else if (action === 'reject') {
         await investmentService.approve(plan.id, 'reject');
         toast.success(`Plan rejected: ${plan.irn}`);
         setLastApproved(null);
+        setData(prev => ({
+          ...prev,
+          items: (prev.items || []).filter(x => x.id !== plan.id),
+          total: Math.max(0, (prev.total || 0) - 1),
+        }));
       } else {
         const res = await investmentService.approve(plan.id, 'approve');
         const approved = res.data?.data || plan;
         setLastApproved(approved);
         const remaining = pending.filter(x => x.id !== plan.id).length;
+        setData(prev => ({
+          ...prev,
+          items: (prev.items || []).filter(x => x.id !== plan.id),
+          total: Math.max(0, (prev.total || 0) - 1),
+        }));
         toast.success(
           remaining > 0
             ? `Approved ${plan.irn} — ${remaining} more pending`
@@ -1013,7 +1035,10 @@ function ApproveInvestment({ onNavigate, onPrintReceipt }) {
       }
       await load();
     } catch (e) {
-      toast.error(e.response?.data?.message || 'Action failed');
+      const msg = e.response?.data?.message || e.message || 'Action failed';
+      setLastError(msg);
+      toast.error(msg);
+      await load();
     } finally {
       setActing(null);
     }
@@ -1030,6 +1055,12 @@ function ApproveInvestment({ onNavigate, onPrintReceipt }) {
         <Alert type="info" style={{ marginBottom: 12 }}>
           Approving deducts the <strong>monthly amount</strong> from the branch wallet and marks the 1st SMI as paid (TRI = monthly amount).
           Ensure the branch has sufficient balance before approving.
+        </Alert>
+      )}
+
+      {lastError && (
+        <Alert type="danger" style={{ marginBottom: 12 }}>
+          <strong>Approve failed:</strong> {lastError}
         </Alert>
       )}
 
