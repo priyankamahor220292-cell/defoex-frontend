@@ -12,6 +12,7 @@ import BranchReceipt from './BranchReceipt';
 import PaymentModeSection, { validateUpiPayment } from '../../components/PaymentMode/PaymentModeSection';
 import toast from 'react-hot-toast';
 import { todayISOLocal, addMonthsISO, formatLocal, formatLocalDate } from '../../utils/dateTime';
+import MemberPortfolio from '../dashboards/member/MemberPortfolio';
 
 const MIS_TABLE = {
   '3Y': { months:36, label:'3 Years' },
@@ -59,10 +60,58 @@ const displayTenure = (plan) =>
 
 const fmt = n => '\u20b9' + (n||0).toLocaleString('en-IN');
 
+/** TRI = installments paid × monthly amount (e.g. ₹1000/mo, 2 paid → ₹2000) */
+const calcTRI = (p) => {
+  if (p?.tri != null) return p.tri;
+  if (p?.total_received_investment != null) return p.total_received_investment;
+  const paid = p?.installments_paid || 0;
+  const monthly = parseFloat(p?.monthly_amount || 0);
+  if (p?.plan_type === 'SIS') return paid ? monthly : 0;
+  return paid && monthly ? paid * monthly : 0;
+};
+
+/** SMI status: "1 of 36" / "2 of 60" / "1 of 1" (SIS) */
+const formatSmiStatus = (p) =>
+  p?.status_label || p?.installment_status || p?.smi_status ||
+  `${p?.installments_paid || 0} of ${p?.total_installments || 0}`;
+
+/** TRI display — ₹0 when none paid; — for unpaid SIS */
+const displayTRI = (p) => {
+  const tri = calcTRI(p);
+  if (p?.plan_type === 'SIS' && !(p?.installments_paid > 0)) return '—';
+  return fmt(tri);
+};
+
+const approvalBadge = (status) => {
+  const s = status || 'Pending';
+  const bg = s === 'Approved' ? 'var(--success-bg)' : s === 'Rejected' ? 'var(--danger-bg)' : 'var(--warning-bg)';
+  const color = s === 'Approved' ? 'var(--success)' : s === 'Rejected' ? 'var(--danger)' : 'var(--warning)';
+  return (
+    <span style={{ fontSize:'0.72rem', fontWeight:700, padding:'2px 9px', borderRadius:10, background:bg, color }}>
+      {s}
+    </span>
+  );
+};
+
 export default function InvestmentsPage() {
   const [view, setView] = useState('list');
   const [chartPreset, setChartPreset] = useState(null);
   const { user } = useAuth();
+
+  if (user?.role === 'member') {
+    return (
+      <div className="page-enter">
+        <div className="page-header">
+          <div>
+            <h1>My Investments</h1>
+            <p className="text-muted">Your active MIS and SIS plans</p>
+          </div>
+        </div>
+        <MemberPortfolio showStats />
+      </div>
+    );
+  }
+
   return (
     <div className="page-enter">
       <div className="page-header">
@@ -216,10 +265,11 @@ function PlanDetailRows({ plan }) {
     ['Total Investment', fmt(plan.total_investment_amount)],
     ['Maturity', fmt(plan.total_maturity_amount)],
     ['ROI', plan.roi_display],
+    ['TRI (Total Received)', fmt(calcTRI(plan))],
+    ['SMI Status', formatSmiStatus(plan)],
     ['Payment Mode', plan.payment_mode],
     ['Investment Date', formatLocalDate(plan.investment_date)],
     ['Maturity Date', formatLocalDate(plan.maturity_date)],
-    ['Installments', `${plan.installments_paid || 0} / ${plan.total_installments || 0}`],
     ['Approval', plan.approval_status],
     ['Status', plan.status],
     ['Created', formatLocal(plan.created_at)],
@@ -340,6 +390,8 @@ function PlanList() {
   const [data, setData] = useState({ items:[], total:0 });
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [receiptIrn, setReceiptIrn] = useState(null);
   const [branchReceiptIrn, setBranchReceiptIrn] = useState(null);
   const [viewPlan, setViewPlan] = useState(null);
@@ -349,11 +401,14 @@ function PlanList() {
 
   const load = useCallback(() => {
     setLoading(true);
-    investmentService.list({ page:1 })
-      .then(r => setData(r.data.data || {}))
+    const params = { page: 1, per_page: 100 };
+    if (filterType) params.plan_type = filterType;
+    if (filterStatus) params.status = filterStatus;
+    investmentService.list(params)
+      .then(r => setData(r.data.data || { items: [], total: 0 }))
       .catch(e => toast.error(e.response?.data?.message || 'Cannot connect to server'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [filterType, filterStatus]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -428,78 +483,130 @@ function PlanList() {
 
   return (
     <>
-      <Panel title="All Investment Plans">
-        {/* Search by Bond No. */}
-        <div style={{display:'flex',gap:10,marginBottom:14,maxWidth:400}}>
-          <input style={{flex:1,padding:'8px 12px',border:'1px solid var(--border)',borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontSize:'0.85rem'}}
-            placeholder="🔍 Search by Bond No. (IRN) / Investor ID"
-            value={search} onChange={e=>setSearch(e.target.value)} />
-          {search && <button className="btn btn-outline btn-sm" onClick={()=>setSearch('')}>✕</button>}
+      <Panel
+        title={`All Investment Plans (${data.total || filtered.length})`}
+        actions={
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <select
+              className="form-input"
+              style={{ width:'auto', fontSize:'0.82rem', padding:'6px 10px' }}
+              value={filterType}
+              onChange={e => setFilterType(e.target.value)}
+            >
+              <option value="">All Types</option>
+              <option value="MIS">MIS</option>
+              <option value="SIS">SIS</option>
+            </select>
+            <select
+              className="form-input"
+              style={{ width:'auto', fontSize:'0.82rem', padding:'6px 10px' }}
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <button className="btn btn-outline btn-sm" onClick={load}>↻ Refresh</button>
+          </div>
+        }
+      >
+        <div style={{ display:'flex', gap:10, marginBottom:14, maxWidth:420 }}>
+          <input
+            style={{ flex:1, padding:'8px 12px', border:'1px solid var(--border)', borderRadius:'var(--border-radius-md)', background:'var(--bg-input)', color:'var(--text-primary)', fontSize:'0.85rem' }}
+            placeholder="Search Plan ID / Investor ID / Plan name"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && <button className="btn btn-outline btn-sm" onClick={() => setSearch('')}>✕</button>}
         </div>
 
         {loading ? <Loading /> : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>#</th><th>IRN (Bond No.)</th><th>Investor ID</th>
-                <th>Plan</th><th>Monthly</th><th>Total Invest</th>
-                <th>Maturity</th><th>ROI</th>
-                <th>Investment Status</th>
-                <th>Approval</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p,i) => (
-                <tr key={p.id}>
-                  <td>{i+1}</td>
-                  <td><code style={{fontFamily:'monospace',fontSize:'0.75rem',color:'var(--success)'}}>{p.irn}</code></td>
-                  <td><code style={{fontFamily:'monospace',fontSize:'0.75rem',color:'var(--primary)'}}>{p.investor_id}</code></td>
-                  <td><strong>{p.plan_name}</strong></td>
-                  <td><strong style={{color:'var(--primary)'}}>{fmt(p.monthly_amount)}</strong></td>
-                  <td>{fmt(p.total_investment_amount)}</td>
-                  <td><strong style={{color:'var(--success)'}}>{fmt(p.total_maturity_amount)}</strong></td>
-                  <td style={{color:'var(--primary)',fontWeight:700}}>{p.roi_display}</td>
-                  {/* Investment Status: 3M-1of36, 5M-1of60, 6M-1of84 */}
-                  <td>
-                    <span style={{fontFamily:'monospace',fontSize:'0.75rem',background:'var(--bg-table-head)',padding:'2px 8px',borderRadius:4,fontWeight:700}}>
-                      {p.plan_type === 'SIS'
-                        ? `7.5Y-1of1`
-                        : `${p.plan_tenure==='3Y'?'3M':p.plan_tenure==='5Y'?'5M':'7M'}-${p.installments_paid||0}of${p.total_installments}`}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{fontSize:'0.72rem',fontWeight:700,padding:'2px 9px',borderRadius:10,
-                      background:p.approval_status==='Approved'?'var(--success-bg)':p.approval_status==='Rejected'?'var(--danger-bg)':'var(--warning-bg)',
-                      color:p.approval_status==='Approved'?'var(--success)':p.approval_status==='Rejected'?'var(--danger)':'var(--warning)'}}>
-                      {p.approval_status}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                      {isAdmin && (
-                        <>
-                          <button className="btn btn-outline btn-sm" onClick={() => openView(p)}>View</button>
-                          <button className="btn btn-outline btn-sm" onClick={() => openEdit(p)}>Edit</button>
-                        </>
-                      )}
-                      {isAdmin
-                        ? <button className="btn btn-primary btn-sm" onClick={()=>setReceiptIrn(p.irn)} title="Print Investment Bond">📜 Bond</button>
-                        : <button className="btn btn-outline btn-sm" onClick={()=>setBranchReceiptIrn(p.irn)} title="Print Receipt">🧾 Receipt</button>
-                      }
-                      {isAdmin && (
-                        <button className="btn btn-danger btn-sm" onClick={() => deletePlan(p)}>Delete</button>
-                      )}
-                    </div>
-                  </td>
+          <div style={{ overflowX:'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Plan ID</th>
+                  <th>Investor ID</th>
+                  <th>Plan</th>
+                  <th>Monthly</th>
+                  <th>Total Inv.</th>
+                  <th>TRI</th>
+                  <th>Return of Investment</th>
+                  <th>Payment</th>
+                  <th>Status</th>
+                  <th>Approval</th>
+                  <th>Date</th>
+                  <th>Receipt</th>
+                  {isAdmin && <th>Admin</th>}
                 </tr>
-              ))}
-              {filtered.length===0&&(
-                <tr><td colSpan={11} style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
-                  {search?`No results for "${search}"` : 'No plans found'}
-                </td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((p, i) => (
+                  <tr key={p.id}>
+                    <td>{i + 1}</td>
+                    <td>
+                      <code style={{ fontFamily:'monospace', fontSize:'0.72rem', color:'var(--success)' }}>
+                        {p.irn}
+                      </code>
+                    </td>
+                    <td>
+                      <code style={{ fontFamily:'monospace', fontSize:'0.72rem', color:'var(--primary)' }}>
+                        {p.investor_id}
+                      </code>
+                    </td>
+                    <td><strong style={{ fontSize:'0.82rem' }}>{p.plan_name}</strong></td>
+                    <td><strong style={{ color:'var(--primary)' }}>{fmt(p.monthly_amount)}</strong></td>
+                    <td>{fmt(p.total_investment_amount)}</td>
+                    <td><strong style={{ color:'var(--warning)' }}>{displayTRI(p)}</strong></td>
+                    <td><strong style={{ color:'var(--success)' }}>{fmt(p.total_maturity_amount)}</strong></td>
+                    <td style={{ fontSize:'0.82rem' }}>{p.payment_mode || 'Cash'}</td>
+                    <td>
+                      <span style={{ fontFamily:'monospace', fontSize:'0.72rem', background:'var(--bg-table-head)', padding:'2px 8px', borderRadius:4, fontWeight:700 }}>
+                        {formatSmiStatus(p)}
+                      </span>
+                    </td>
+                    <td>{approvalBadge(p.approval_status)}</td>
+                    <td style={{ fontSize:'0.78rem', whiteSpace:'nowrap' }}>
+                      {(p.investment_date || p.created_at || '').slice(0, 10)}
+                    </td>
+                    <td>
+                      {p.approval_status === 'Approved' ? (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => setBranchReceiptIrn(p.irn)}
+                          title="Print receipt"
+                        >
+                          🧾 Receipt
+                        </button>
+                      ) : (
+                        <span style={{ color:'var(--text-muted)' }}>—</span>
+                      )}
+                    </td>
+                    {isAdmin && (
+                      <td>
+                        <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                          <button className="btn btn-outline btn-sm" onClick={() => openView(p)} title="View">👁</button>
+                          <button className="btn btn-outline btn-sm" onClick={() => openEdit(p)} title="Edit">✎</button>
+                          <button className="btn btn-outline btn-sm" onClick={() => setReceiptIrn(p.irn)} title="Bond">📜</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => deletePlan(p)} title="Delete">✕</button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={isAdmin ? 14 : 13} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>
+                      {search ? `No results for "${search}"` : 'No plans found'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
       </Panel>
       <PlanAdminModals
@@ -799,14 +906,15 @@ function MISContribution() {
                   <code style={{fontFamily:'monospace',fontSize:'0.78rem',color:'var(--success)',background:'var(--success-bg)',padding:'2px 8px',borderRadius:4}}>{plan.irn}</code>
                   <span style={{marginLeft:10,fontWeight:700}}>{plan.plan_name}</span>
                 </div>
-                {/* Investment Status: 1 of 36 */}
+                {/* SMI Status: 1 of 36 */}
                 <span style={{fontFamily:'monospace',fontWeight:700,fontSize:'0.85rem',background:'var(--bg-table-head)',padding:'4px 12px',borderRadius:6}}>
-                  {plan.status_label}
+                  {formatSmiStatus(plan)}
                 </span>
               </div>
 
-              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'4px 16px',fontSize:'0.82rem',marginBottom:12}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'4px 16px',fontSize:'0.82rem',marginBottom:12}}>
                 <div><span style={{color:'var(--text-muted)'}}>Monthly: </span><strong>{fmt(plan.monthly_amount)}</strong></div>
+                <div><span style={{color:'var(--text-muted)'}}>TRI: </span><strong style={{color:'var(--warning)'}}>{fmt(calcTRI(plan))}</strong></div>
                 <div><span style={{color:'var(--text-muted)'}}>Next Due: </span><strong style={{color:plan.is_overdue?'var(--danger)':'var(--text-primary)'}}>{plan.next_due_date||'—'}{plan.is_overdue?' ⚠️':''}</strong></div>
                 <div><span style={{color:'var(--text-muted)'}}>Maturity: </span><strong style={{color:'var(--success)'}}>{fmt(plan.total_maturity_amount)}</strong></div>
               </div>
@@ -868,8 +976,10 @@ function ApproveInvestment() {
         toast.success(`Investment plan deleted: ${plan.irn}`);
       } else {
         await investmentService.approve(plan.id, action);
-        toast.success(`Investment approved! Investment ID: ${plan.irn}`, { duration: 6000 });
-        setTimeout(() => toast(`Investment ID: ${plan.irn}`, {icon:'🎉', duration:8000}), 500);
+        toast.success(
+          `Investment approved! ID: ${plan.irn} — TRI: ${fmt(plan.monthly_amount)} (1st SMI paid)`,
+          { duration: 6000 }
+        );
       }
       load();
     } catch(e) {
@@ -878,27 +988,45 @@ function ApproveInvestment() {
   };
 
   return (
-    <Panel title="Approve Investment" subtitle="Click Approve to generate Investment ID and display in Toaster">
+    <Panel title="Approve Investment" subtitle="Approve pending plans — 1st installment is collected from branch wallet">
+      {!loading && (data.items||[]).length > 0 && (
+        <Alert type="info" style={{ marginBottom: 12 }}>
+          Approving deducts the <strong>monthly amount</strong> from the branch wallet and marks the 1st SMI as paid (TRI = monthly amount).
+          Ensure the branch has sufficient balance before approving.
+        </Alert>
+      )}
       {loading ? <Loading /> : (
         <table className="data-table">
           <thead>
-            <tr><th>#</th><th>IRN</th><th>Investor ID</th><th>Plan</th><th>Monthly</th><th>Total</th><th>Maturity</th><th>Actions</th></tr>
+            <tr><th>#</th><th>IRN</th><th>Investor ID</th><th>Plan</th><th>Monthly</th><th>Branch Balance</th><th>Total</th><th>Maturity</th><th>Actions</th></tr>
           </thead>
           <tbody>
-            {(data.items||[]).map((p,i) => (
+            {(data.items||[]).map((p,i) => {
+              const monthly = parseFloat(p.monthly_amount || 0);
+              const branchBal = parseFloat(p.branch_current_balance ?? 0);
+              const canApprove = branchBal >= monthly;
+              return (
               <tr key={p.id}>
                 <td>{i+1}</td>
                 <td><code style={{fontFamily:'monospace',fontSize:'0.75rem',color:'var(--success)'}}>{p.irn}</code></td>
                 <td><code style={{fontFamily:'monospace',fontSize:'0.75rem',color:'var(--primary)'}}>{p.investor_id}</code></td>
                 <td><strong>{p.plan_name}</strong></td>
                 <td><strong style={{color:'var(--primary)'}}>{fmt(p.monthly_amount)}</strong></td>
+                <td>
+                  <strong style={{color: canApprove ? 'var(--success)' : 'var(--danger)'}}>
+                    {fmt(branchBal)}
+                  </strong>
+                  {!canApprove && (
+                    <div style={{fontSize:'0.7rem',color:'var(--danger)'}}>Insufficient</div>
+                  )}
+                </td>
                 <td>{fmt(p.total_investment_amount)}</td>
                 <td><strong style={{color:'var(--success)'}}>{fmt(p.total_maturity_amount)}</strong></td>
                 <td>
                   <div style={{display:'flex',gap:6}}>
-                    {/* Approve → Generate Investment ID → Display in Toaster */}
                     <button className="btn btn-success btn-sm"
-                      disabled={acting===p.id}
+                      disabled={acting===p.id || !canApprove}
+                      title={canApprove ? 'Approve plan' : `Need ${fmt(monthly)} in branch wallet`}
                       onClick={()=>act(p,'approve')}>
                       {acting===p.id?'...':'✓ Approve'}
                     </button>
@@ -912,9 +1040,9 @@ function ApproveInvestment() {
                   </div>
                 </td>
               </tr>
-            ))}
+            );})}
             {!(data.items||[]).length && (
-              <tr><td colSpan={8} style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
+              <tr><td colSpan={9} style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
                 No pending investments. Create a plan first.
               </td></tr>
             )}

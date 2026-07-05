@@ -3,6 +3,7 @@ import Panel from '../../components/Panel/Panel';
 import Loading from '../../components/Loading/Loading';
 import Modal from '../../components/Modal/Modal';
 import RegistrationForm from './RegistrationForm';
+import InvestorCredentialsModal from '../../components/InvestorCredentialsModal/InvestorCredentialsModal';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -244,13 +245,17 @@ function ApprovedInvestors() {
     try {
       const { data } = await api.post(`/api/registration/approve/${member.id}`, { action });
       if (action === 'approve') {
-        toast.success(`✅ Approved: ${member.full_name}`);
-        const creds = data.data?.credentials;
-        if (creds) {
-          setTimeout(() => setCredModal(creds), 300);
+        toast.success(`Approved: ${member.full_name}`);
+        const creds = data?.data?.credentials;
+        if (creds?.username) {
+          setCredModal({
+            ...creds,
+            full_name: creds.full_name || member.full_name,
+            investor_id: creds.investor_id || member.investor_id,
+          });
         }
       } else {
-        toast.success(`❌ Rejected: ${member.full_name}`);
+        toast.success(`Rejected: ${member.full_name}`);
       }
       load();
     } catch(e) {
@@ -319,30 +324,7 @@ function ApprovedInvestors() {
         </table>
       </Panel>
 
-      {/* Credentials Modal — DEFIN202601 */}
-      <Modal open={!!credModal} onClose={()=>setCredModal(null)} title="🎉 Investor Account Created!" size="sm">
-        {credModal && (
-          <div style={{textAlign:'center',padding:'8px 0'}}>
-            <div style={{fontSize:'2.5rem',marginBottom:12}}>🎊</div>
-            <div style={{fontWeight:700,fontSize:'1rem',marginBottom:16,color:'var(--success)'}}>
-              Congratulations Investor Created!
-            </div>
-            <div style={{background:'var(--bg-input)',borderRadius:'var(--border-radius-md)',padding:'16px',fontFamily:'monospace',fontSize:'0.9rem',lineHeight:2.5,marginBottom:12}}>
-              <div>Username: <strong style={{color:'var(--primary)'}}>{credModal.username}</strong></div>
-              <div>Password: <strong style={{color:'var(--primary)'}}>{credModal.password}</strong></div>
-            </div>
-            <div style={{fontSize:'0.78rem',color:'var(--text-muted)',marginBottom:16}}>
-              10-digit hexadecimal password · Share with investor
-            </div>
-            <button className="btn btn-primary" onClick={()=>{
-              navigator.clipboard.writeText(`Username: ${credModal.username}\nPassword: ${credModal.password}`);
-              toast.success('Credentials copied!');
-            }}>Copy Credentials</button>
-            {' '}
-            <button className="btn btn-outline" onClick={()=>setCredModal(null)}>Close</button>
-          </div>
-        )}
-      </Modal>
+      <InvestorCredentialsModal creds={credModal} onClose={() => setCredModal(null)} />
     </>
   );
 }

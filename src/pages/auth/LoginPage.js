@@ -4,11 +4,6 @@ import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import './LoginPage.css';
 
-const DEFAULT_LOGINS = [
-  { label: 'Super Admin', username: 'superadmin', password: 'Defoex@2024' },
-  { label: 'Admin', username: 'Nitin', password: 'Admin@123' },
-];
-
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -52,26 +47,18 @@ export default function LoginPage() {
           msg || 'Login API not found. On the server run: cd defoex-backend && bash deploy_live.sh'
         );
       } else {
-        setError(
-          msg === 'Invalid credentials'
-            ? 'Invalid username or password. Click a default login on the left to auto-fill (passwords are case-sensitive).'
-            : (msg || 'Invalid username or password. Passwords are case-sensitive.')
-        );
+        setError(msg || 'Invalid username or password. Please try again.');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const fillCredentials = ({ username, password }) => {
-    setForm({ username, password });
-    setError('');
-  };
-
   return (
     <div className="login-page">
       {/* Left panel */}
       <div className="login-left">
+        <div className="login-left-inner">
         <div className="login-brand">
           <div className="brand-logo">D</div>
           <div>
@@ -91,22 +78,8 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="login-credentials-hint">
-          <div className="hint-title">Default Logins <span className="hint-sub">(click to fill)</span></div>
-          {DEFAULT_LOGINS.map((cred) => (
-            <button
-              key={cred.label}
-              type="button"
-              className="hint-row"
-              onClick={() => fillCredentials(cred)}
-            >
-              <span>{cred.label}</span>
-              <code>{cred.username} / {cred.password}</code>
-            </button>
-          ))}
-        </div>
-
         <div className="login-quote">"DefOex : Together We Build, Together We Grow..."</div>
+        </div>
       </div>
 
       {/* Right panel */}
@@ -129,7 +102,7 @@ export default function LoginPage() {
               <label>Username / Email</label>
               <input
                 type="text"
-                placeholder="e.g. superadmin"
+                placeholder="Enter username or email"
                 value={form.username}
                 onChange={e => { setForm({ ...form, username: e.target.value }); setError(''); }}
                 autoFocus
@@ -158,23 +131,6 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
-
-          <div className="login-roles">
-            <div className="roles-title">Portal Access</div>
-            <div className="roles-grid">
-              {[
-                { role: 'Super Admin', icon: '👑' },
-                { role: 'Branch Manager', icon: '🏢' },
-                { role: 'Advisor', icon: '🤝' },
-                { role: 'Member', icon: '👤' },
-              ].map(r => (
-                <div key={r.role} className="role-chip">
-                  <span>{r.icon}</span>
-                  <span>{r.role}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
         <div className="login-footer">

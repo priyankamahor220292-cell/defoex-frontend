@@ -1,0 +1,163 @@
+/* Investment Receipt — official DEFOEX layout */
+.inv-receipt-wrap {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 27, 62, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.inv-receipt-modal {
+  background: var(--bg-card);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 720px;
+  max-width: 97vw;
+  max-height: 94vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.inv-receipt-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-sidebar);
+  flex-shrink: 0;
+}
+
+.inv-receipt-scroll {
+  flex: 1;
+  overflow-y: auto;
+  background: #e8ecf1;
+  padding: 28px 24px;
+}
+
+/* ── Receipt page (printable) ── */
+.inv-receipt-page {
+  max-width: 640px;
+  margin: 0 auto;
+  background: #fff;
+  padding: 36px 44px 48px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  font-family: Arial, Helvetica, sans-serif;
+  color: #333;
+}
+
+.inv-receipt-company {
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #2c2c2c;
+  margin-bottom: 6px;
+}
+
+.inv-receipt-title {
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #2c2c2c;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  margin-bottom: 28px;
+}
+
+.inv-receipt-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  font-size: 0.88rem;
+  color: #333;
+}
+
+.inv-receipt-meta .lbl {
+  color: #9b2d5c;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.inv-receipt-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 32px;
+  margin-bottom: 28px;
+}
+
+.inv-receipt-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inv-receipt-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  min-height: 1.6em;
+}
+
+.inv-receipt-field .lbl {
+  color: #9b2d5c;
+  font-weight: 700;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.inv-receipt-field .val {
+  color: #333;
+  font-weight: 400;
+}
+
+.inv-receipt-field .val.roi {
+  font-style: italic;
+}
+
+.inv-receipt-remarks {
+  margin-bottom: 48px;
+}
+
+.inv-receipt-remarks .lbl {
+  color: #9b2d5c;
+  font-weight: 700;
+  font-style: italic;
+  font-size: 0.88rem;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.inv-receipt-remarks p {
+  font-size: 0.88rem;
+  color: #333;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.inv-receipt-sigs {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 60px;
+  padding-top: 8px;
+}
+
+.inv-receipt-sigs span {
+  font-size: 0.85rem;
+  color: #333;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  .inv-receipt-wrap { position: static; background: none; }
+  .inv-receipt-modal { box-shadow: none; max-height: none; width: 100%; }
+  .inv-receipt-scroll { padding: 0; background: #fff; overflow: visible; }
+  .inv-receipt-page { box-shadow: none; max-width: 100%; padding: 20mm; }
+}

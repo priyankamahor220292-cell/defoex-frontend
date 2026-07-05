@@ -24,15 +24,18 @@ export default function InvestorCredentialsModal({ creds, onClose }) {
     <Modal
       open={!!creds}
       onClose={onClose}
-      title="Login Credentials"
+      title="Investor Account Created!"
       size="sm"
     >
       <div className="investor-cred-modal">
+        <div className="investor-cred-celebrate">🎊</div>
+        <div className="investor-cred-success">Congratulations Investor Created!</div>
+
         <div className="investor-cred-header">
           <div className="investor-cred-avatar">{initials(creds.full_name)}</div>
           <div className="investor-cred-info">
             <div className="investor-cred-name">
-              {creds.full_name || 'Investor Account Created'}
+              {creds.full_name || 'Investor Account'}
             </div>
             {creds.investor_id && (
               <div className="investor-cred-id">{creds.investor_id}</div>
@@ -45,24 +48,15 @@ export default function InvestorCredentialsModal({ creds, onClose }) {
             <span>Username</span>
             <strong>{creds.username}</strong>
           </div>
-          {creds.password ? (
-            <div className="investor-cred-row investor-cred-row--password">
-              <span>Password</span>
-              <strong>{creds.password}</strong>
-            </div>
-          ) : (
-            <div className="investor-cred-row">
-              <span>Password</span>
-              <strong style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                Existing login — not regenerated
-              </strong>
-            </div>
-          )}
+          <div className="investor-cred-row investor-cred-row--password">
+            <span>Password</span>
+            <strong>{creds.password || '—'}</strong>
+          </div>
         </div>
 
         {creds.password && (
           <div className="investor-cred-notice">
-            Save these credentials now. The password cannot be recovered — share with the investor for login.
+            10-digit hexadecimal password — share with investor for login. Save now; it cannot be viewed again.
           </div>
         )}
 
@@ -73,7 +67,7 @@ export default function InvestorCredentialsModal({ creds, onClose }) {
             </button>
           )}
           <button type="button" className="btn btn-primary" onClick={onClose}>
-            Done
+            Close
           </button>
         </div>
       </div>
