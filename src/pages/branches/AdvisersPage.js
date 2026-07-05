@@ -1,22 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Panel from '../../components/Panel/Panel';
-import Badge from '../../components/Badge/Badge';
 import Modal from '../../components/Modal/Modal';
-import Field, { Input, Select } from '../../components/Field/Field';
 import Loading from '../../components/Loading/Loading';
+import AdviserRegistrationForm from './AdviserRegistrationForm';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { formatLocalDate } from '../../utils/dateTime';
-
-const RANKS = [
-  [1,'SR'],[2,'SO'],[3,'SD'],[4,'SI'],[5,'DO'],[6,'RO'],[7,'ZO'],
-  [8,'EM'],[9,'EM I'],[10,'EM II'],[11,'EM R'],[12,'EM C'],
-  [13,'House 1'],[14,'House 2'],[15,'House 3'],[16,'House 4'],
-  [17,'House 5'],[18,'House 6'],[19,'House 7'],[20,'House 8'],
-];
-
-const RANK_MAP = Object.fromEntries(RANKS);
+import './AdvisersPage.css';
 
 export default function AdvisersPage() {
   const { user }   = useAuth();
@@ -29,14 +20,6 @@ export default function AdvisersPage() {
   const [detail,   setDetail]   = useState(null);
   const [credModal,setCredModal]= useState(null);  // {username, password}
 
-  // New Registration form
-  const [promoterCode, setPromoterCode] = useState('');
-  const [promoterInfo, setPromoterInfo] = useState(null);
-  const [promoterErr,  setPromoterErr]  = useState('');
-  const [visibleRanks, setVisibleRanks] = useState([]);
-  const [form, setForm] = useState({ full_name:'', mobile:'', email:'', rank_id:1, branch_id:'', parent_adviser_code:'' });
-  const [saving, setSaving] = useState(false);
-
   const load = useCallback(() => {
     setLoading(true);
     Promise.allSettled([api.get('/api/advisers/'), api.get('/api/branches/')])
@@ -48,54 +31,6 @@ export default function AdvisersPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-
-  const set = (k,v) => setForm(f => ({...f,[k]:v}));
-
-  // Flowchart: Enter Promoter Adviser ID → Automatically Fetch Name & Post Number
-  // Display: "Naveen Mahore · House 8 (Rank 16)"
-  const verifyPromoter = async () => {
-    setPromoterErr('');
-    setPromoterInfo(null);
-    setVisibleRanks([]);
-    let code = promoterCode.trim();
-    if (!code) { setPromoterErr('Enter Promoter Adviser ID'); return; }
-    // Auto-correct common DEFIN → DEFAD typo (same year+sequence)
-    const upper = code.toUpperCase();
-    if (upper.startsWith('DEFIN') && upper.length > 5) {
-      code = 'DEFAD' + upper.slice(5);
-      setPromoterCode(code);
-    }
-    try {
-      const { data } = await api.get(`/api/advisers/${code}`);
-      const adv = data.data;
-      setPromoterInfo(adv);
-      set('parent_adviser_code', adv.adviser_code);
-      // Rank-based visibility: Promoter on Rank N → show only ranks N-1 down to 1
-      const maxRank = (adv.rank_id || 1) - 1;
-      setVisibleRanks(RANKS.filter(([id]) => id <= maxRank));
-      if (maxRank > 0) set('rank_id', maxRank);
-    } catch(e) {
-      setPromoterErr(e.response?.data?.message || 'Promoter ID not found');
-    }
-  };
-
-  const saveAdviser = async () => {
-    if (!form.full_name || !form.mobile) return toast.error('Name and Mobile required');
-    setSaving(true);
-    try {
-      const { data } = await api.post('/api/advisers/', {
-        ...form,
-        branch_id: form.branch_id ? parseInt(form.branch_id) : null,
-      });
-      toast.success(data.message || 'Adviser created! Go to Approved Adviser tab to approve.');
-      setView('list');
-      setForm({ full_name:'', mobile:'', email:'', rank_id:1, branch_id:'', parent_adviser_code:'' });
-      setPromoterCode(''); setPromoterInfo(null);
-      load();
-    } catch(e) {
-      toast.error(e.response?.data?.message || 'Failed to create adviser');
-    } finally { setSaving(false); }
-  };
 
   // Flowchart: Click Approve → Generate Username & Password → Display in Toaster
   const approveAdviser = async (adviser) => {
@@ -173,7 +108,7 @@ export default function AdvisersPage() {
         </div>
         <div style={{display:'flex',gap:8}}>
           <button className={`btn ${view==='list'    ?'btn-primary':'btn-outline'}`} onClick={() => setView('list')}>List Adviser</button>
-          <button className={`btn ${view==='create'  ?'btn-primary':'btn-outline'}`} onClick={() => setView('create')}>+ New Adviser</button>
+          <button className={`btn ${view==='create'  ?'btn-primary':'btn-outline'}`} onClick={() => setView('create')}>+ New Adviser Registration</button>
           <button className={`btn ${view==='approved'?'btn-primary':'btn-outline'}`} onClick={() => setView('approved')}>
             Approved Adviser
             {pending.length > 0 && <span style={{marginLeft:6,background:'#ff5252',color:'#fff',borderRadius:10,padding:'1px 7px',fontSize:'0.7rem',fontWeight:700}}>{pending.length}</span>}
@@ -258,88 +193,12 @@ export default function AdvisersPage() {
 
       {/* ══ NEW ADVISER REGISTRATION ══ */}
       {view === 'create' && (
-        <Panel title="New Adviser Registration" subtitle="Enter Promoter Adviser ID to auto-fetch details and rank conditions">
-
-          {/* Step 1: Enter Promoter Adviser ID */}
-          <div style={{background:'var(--bg-input)',borderRadius:'var(--border-radius-sm)',padding:'16px',marginBottom:16,border:'1px solid var(--border)'}}>
-            <div style={{fontWeight:700,marginBottom:10,fontSize:'0.9rem'}}>Step 1 — Enter Promoter Adviser ID</div>
-            <div style={{fontSize:'0.78rem',color:'var(--text-muted)',marginBottom:8}}>
-              Use <strong>Adviser ID</strong> (<code>DEFAD202601</code>), not Investor ID (<code>DEFIN...</code>).
-              First promoter: <code>DEFAD202601</code>
-            </div>
-            <div style={{display:'flex',gap:8,marginBottom:8}}>
-              <input
-                style={{flex:1,padding:'8px 12px',border:`1px solid ${promoterErr?'var(--danger)':'var(--border)'}`,borderRadius:'var(--border-radius-md)',background:'var(--bg-input)',color:'var(--text-primary)',fontSize:'0.85rem',fontFamily:'monospace'}}
-                placeholder="e.g. DEFAD202601"
-                value={promoterCode}
-                onChange={e => { setPromoterCode(e.target.value.trim()); setPromoterErr(''); }}
-                onKeyDown={e => e.key === 'Enter' && verifyPromoter()}
-              />
-              <button className="btn btn-primary" onClick={verifyPromoter}>Verify →</button>
-            </div>
-            {promoterErr && <div style={{color:'var(--danger)',fontSize:'0.8rem'}}>{promoterErr}</div>}
-
-            {/* Auto-fetch display: "Naveen Mahore · House 8 (Rank 16)" */}
-            {promoterInfo && (
-              <div style={{background:'var(--success-bg)',border:'1px solid var(--success)',borderRadius:'var(--border-radius-sm)',padding:'10px 14px',marginTop:8}}>
-                <div style={{fontWeight:700,color:'var(--success)',marginBottom:3}}>✅ Promoter Verified</div>
-                <div style={{fontSize:'0.85rem',color:'var(--text-secondary)'}}>
-                  <strong>{promoterInfo.full_name}</strong> · {promoterInfo.rank_name} (Rank {promoterInfo.rank_id})
-                </div>
-                {visibleRanks.length > 0 && (
-                  <div style={{fontSize:'0.78rem',color:'var(--text-muted)',marginTop:4}}>
-                    Can create advisers with ranks: <strong>{visibleRanks.map(([,n])=>n).join(', ')}</strong>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Step 2: Fill adviser details */}
-          <div style={{fontWeight:700,marginBottom:10,fontSize:'0.9rem'}}>Step 2 — Adviser Details</div>
-          <div className="reg-form-row">
-            <Field label="Full Name" required>
-              <Input value={form.full_name} onChange={e => set('full_name',e.target.value)} placeholder="Adviser full name" />
-            </Field>
-            <Field label="Mobile Number" required>
-              <Input value={form.mobile} onChange={e => set('mobile',e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="10-digit mobile" maxLength={10} />
-            </Field>
-          </div>
-          <div className="reg-form-row">
-            <Field label="Email">
-              <Input type="email" value={form.email} onChange={e => set('email',e.target.value)} />
-            </Field>
-            <Field label="Select Rank">
-              <Select value={form.rank_id} onChange={e => set('rank_id',parseInt(e.target.value))}>
-                {(visibleRanks.length > 0 ? visibleRanks : RANKS).map(([id,name]) => (
-                  <option key={id} value={id}>{id}. {name}</option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-          <div className="reg-form-row">
-            <Field label="Branch">
-              <Select value={form.branch_id} onChange={e => set('branch_id',e.target.value)}>
-                <option value="">— Select Branch —</option>
-                {branches.map(b => <option key={b.id} value={b.id}>{b.branch_name} ({b.branch_code})</option>)}
-              </Select>
-            </Field>
-            <Field label="Promoter Adviser ID">
-              <Input value={form.parent_adviser_code} readOnly style={{fontFamily:'monospace',background:'var(--bg-table-head)'}} placeholder="Auto-filled after verify" />
-            </Field>
-          </div>
-
-          <div style={{background:'var(--warning-bg)',border:'1px solid var(--warning)',borderRadius:'var(--border-radius-sm)',padding:'10px 14px',marginBottom:12,fontSize:'0.82rem',color:'var(--warning)'}}>
-            ⚠️ After creating, go to <strong>Approved Adviser</strong> tab to approve and generate login credentials.
-          </div>
-
-          <div style={{display:'flex',gap:10}}>
-            <button className="btn btn-outline" onClick={() => setView('list')}>Cancel</button>
-            <button className="btn btn-primary" onClick={saveAdviser} disabled={saving}>
-              {saving ? 'Creating...' : 'Create Adviser →'}
-            </button>
-          </div>
-        </Panel>
+        <AdviserRegistrationForm
+          branches={branches}
+          defaultBranchId={user?.branch_id || (branches.length === 1 ? branches[0].id : '')}
+          onCancel={() => setView('list')}
+          onSuccess={() => { load(); setView('approved'); }}
+        />
       )}
 
       {/* ══ APPROVED ADVISER TAB ══ */}
