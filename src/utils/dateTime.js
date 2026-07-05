@@ -1,49 +1,59 @@
-/** India Standard Time (Asia/Kolkata) formatting for API timestamps. */
+/** Local date/time formatting for API timestamps. */
 
-const TZ = 'Asia/Kolkata';
-
-/** Parse API datetime — supports +05:30, Z (legacy UTC), or naive UTC. */
+/** Parse API datetime — ISO with offset, Z, or naive IST from backend. */
 export function parseApiDate(value) {
   if (!value) return null;
-  if (value instanceof Date) return value;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+
   const s = String(value).trim();
   if (!s) return null;
+
   if (/[+-]\d{2}:\d{2}$/.test(s) || s.endsWith('Z')) {
     const d = new Date(s);
     return Number.isNaN(d.getTime()) ? null : d;
   }
-  // Legacy naive UTC from older records
-  const d = new Date(`${s}Z`);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [year, month, day] = s.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  // Naive backend timestamps are stored in IST.
+  const d = new Date(`${s.replace(' ', 'T')}+05:30`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** dd/mm/yyyy or dd/mm/yyyy HH:mm IST */
-export function formatIST(value, { dateOnly = false } = {}) {
+/** dd/mm/yyyy or dd/mm/yyyy, h:mm am/pm in the user's local timezone. */
+export function formatLocal(value, { dateOnly = false } = {}) {
   const d = parseApiDate(value);
   if (!d) return '—';
 
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: TZ,
+  if (dateOnly) {
+    return d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  }
+
+  return d.toLocaleString('en-IN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-    ...(dateOnly ? {} : { hour: '2-digit', minute: '2-digit', hour12: false }),
-  }).formatToParts(d);
-
-  const get = (type) => parts.find((p) => p.type === type)?.value || '';
-  const dateStr = `${get('day')}/${get('month')}/${get('year')}`;
-  if (dateOnly) return dateStr;
-  return `${dateStr} ${get('hour')}:${get('minute')} IST`;
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
 
-export function formatISTDate(value) {
-  return formatIST(value, { dateOnly: true });
+export function formatLocalDate(value) {
+  return formatLocal(value, { dateOnly: true });
 }
 
-/** Topbar / dashboard — e.g. "Sun, 28 Jun 2026, 2:30 pm IST" */
-export function formatISTNow(date = new Date()) {
+/** Topbar / dashboard clock in local time. */
+export function formatLocalNow(date = new Date()) {
   return date.toLocaleString('en-IN', {
-    timeZone: TZ,
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -51,12 +61,11 @@ export function formatISTNow(date = new Date()) {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-  }) + ' IST';
+  });
 }
 
-export function formatISTLongDate(date = new Date()) {
+export function formatLocalLongDate(date = new Date()) {
   return date.toLocaleDateString('en-IN', {
-    timeZone: TZ,
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -64,25 +73,35 @@ export function formatISTLongDate(date = new Date()) {
   });
 }
 
-/** Today's date in IST as YYYY-MM-DD (for date inputs / registration). */
-export function todayISOIST(date = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-  const get = (type) => parts.find((p) => p.type === type)?.value || '';
-  return `${get('year')}-${get('month')}-${get('day')}`;
+/** Today's date in local timezone as YYYY-MM-DD (for date inputs). */
+export function todayISOLocal(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
-/** Current clock time in IST — e.g. "22:56 IST" */
-export function formatISTTime(date = new Date()) {
-  return date.toLocaleString('en-IN', {
-    timeZone: TZ,
+/** Add months to a YYYY-MM-DD value and return local YYYY-MM-DD. */
+export function addMonthsISO(isoDate, months = 1) {
+  if (!isoDate) return todayISOLocal();
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const d = new Date(year, month - 1 + months, day);
+  return todayISOLocal(d);
+}
+
+export function formatLocalTime(date = new Date()) {
+  return date.toLocaleTimeString('en-IN', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
     hour12: false,
-  }) + ' IST';
+  });
 }
+
+// Backward-compatible aliases used across the app.
+export const formatIST = formatLocal;
+export const formatISTDate = formatLocalDate;
+export const formatISTNow = formatLocalNow;
+export const formatISTLongDate = formatLocalLongDate;
+export const todayISOIST = todayISOLocal;
+export const formatISTTime = formatLocalTime;

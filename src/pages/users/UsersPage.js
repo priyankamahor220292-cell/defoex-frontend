@@ -9,9 +9,24 @@ import api from '../../services/api';
 import { branchService } from '../../services/branchService';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+import { formatLocal } from '../../utils/dateTime';
 import './UsersPage.css';
 
 const ROLES = ['superadmin', 'branchmanager', 'advisor', 'member'];
+const PORTAL_CRUD_ROLES = ['advisor', 'member'];
+
+const emptyForm = (role = 'branchmanager') => ({
+  username: '',
+  email: '',
+  password: '',
+  full_name: '',
+  mobile: '',
+  role,
+  branch_id: '',
+  is_active: true,
+});
+
+const roleLabel = { advisor: 'Adviser', member: 'Investor' };
 
 export default function UsersPage() {
   const { user } = useAuth();
@@ -40,9 +55,13 @@ export default function UsersPage() {
   const [users, setUsers]       = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading]   = useState(true);
+  const [roleFilter, setRoleFilter] = useState('all');
   const [showCreate, setShowCreate] = useState(false);
   const [saving, setSaving]     = useState(false);
-  const [form, setForm] = useState({ username:'', email:'', password:'', full_name:'', mobile:'', role:'branchmanager', branch_id:'' });
+  const [form, setForm] = useState(emptyForm());
+  const [editUser, setEditUser] = useState(null);
+  const [editForm, setEditForm] = useState(emptyForm('advisor'));
+  const [editSaving, setEditSaving] = useState(false);
   const [resetUser, setResetUser] = useState(null);
   const [resetPw, setResetPw] = useState('');
   const [resetting, setResetting] = useState(false);
@@ -61,7 +80,8 @@ export default function UsersPage() {
 
   const load = () => {
     setLoading(true);
-    Promise.allSettled([api.get('/api/users/'), branchService.list()])
+    const params = roleFilter === 'all' ? {} : { role: roleFilter };
+    Promise.allSettled([api.get('/api/users/', { params }), branchService.list()])
       .then(([u, b]) => {
         if (u.status === 'fulfilled') setUsers(u.value.data.data || []);
         if (b.status === 'fulfilled') setBranches(b.value.data.data || []);
@@ -69,9 +89,29 @@ export default function UsersPage() {
       })
       .finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [roleFilter]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const setEdit = (k, v) => setEditForm(f => ({ ...f, [k]: v }));
+
+  const openCreate = () => {
+    const role = roleFilter === 'advisor' || roleFilter === 'member' ? roleFilter : 'branchmanager';
+    setForm(emptyForm(role));
+    setShowCreate(true);
+  };
+
+  const openEdit = (u) => {
+    setEditUser(u);
+    setEditForm({
+      username: u.username || '',
+      email: u.email || '',
+      full_name: u.full_name || '',
+      mobile: u.mobile || '',
+      role: u.role,
+      branch_id: u.branch_id ? String(u.branch_id) : '',
+      is_active: u.is_active !== false,
+    });
+  };
 
   const create = async () => {
     const req = ['username','email','password','full_name','role'];
@@ -82,11 +122,33 @@ export default function UsersPage() {
       toast.success('User created!');
       showCreds(r.data.data, 'New User Credentials');
       setShowCreate(false);
-      setForm({ username:'', email:'', password:'', full_name:'', mobile:'', role:'branchmanager', branch_id:'' });
+      setForm(emptyForm(roleFilter === 'advisor' || roleFilter === 'member' ? roleFilter : 'branchmanager'));
       load();
     } catch (e) {
       toast.error(e.response?.data?.message || 'Failed');
     } finally { setSaving(false); }
+  };
+
+  const saveEdit = async () => {
+    if (!editUser) return;
+    const req = ['username', 'email', 'full_name'];
+    if (req.some(f => !editForm[f]?.trim())) return toast.error('Fill all required fields');
+    setEditSaving(true);
+    try {
+      await api.put(`/api/users/${editUser.id}`, {
+        username: editForm.username.trim(),
+        email: editForm.email.trim(),
+        full_name: editForm.full_name.trim(),
+        mobile: editForm.mobile || null,
+        branch_id: editForm.branch_id ? parseInt(editForm.branch_id, 10) : null,
+        is_active: editForm.is_active,
+      });
+      toast.success(`${editForm.full_name} updated`);
+      setEditUser(null);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to update user');
+    } finally { setEditSaving(false); }
   };
 
   const toggleActive = async (u) => {
@@ -96,6 +158,32 @@ export default function UsersPage() {
       load();
     } catch { toast.error('Failed'); }
   };
+
+  const deleteUser = async (u) => {
+    const label = u.role === 'member' ? 'investor' : 'advisor';
+    if (!window.confirm(`Delete ${u.full_name}? This removes their portal login (${label} account only).`)) return;
+    try {
+      await api.delete(`/api/users/${u.id}`);
+      toast.success(`${u.full_name} deleted`);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to delete user');
+    }
+  };
+
+  const canManage = (u) => PORTAL_CRUD_ROLES.includes(u.role);
+
+  const createLabel = roleFilter === 'advisor'
+    ? '+ Create Adviser'
+    : roleFilter === 'member'
+      ? '+ Create Investor'
+      : '+ Create User';
+
+  const panelTitle = roleFilter === 'advisor'
+    ? 'Adviser Portal Users'
+    : roleFilter === 'member'
+      ? 'Investor Portal Users'
+      : 'All Users';
 
   const resetPassword = async () => {
     if (!resetUser) return;
@@ -129,15 +217,31 @@ export default function UsersPage() {
   return (
     <div className="users-page page-enter">
       <div className="page-header">
-        <div><h1>Users</h1><p className="text-muted">Manage portal access for all roles</p></div>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ Create User</button>
+        <div><h1>Users</h1><p className="text-muted">Manage portal access for advisers, investors, and staff</p></div>
+        <button className="btn btn-primary" onClick={openCreate}>{createLabel}</button>
       </div>
 
-      <Panel title="All Users" subtitle={`${users.length} users`}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        {[
+          ['all', 'All Users'],
+          ['advisor', 'Advisers'],
+          ['member', 'Investors'],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            className={`btn ${roleFilter === value ? 'btn-primary' : 'btn-outline'}`}
+            onClick={() => setRoleFilter(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <Panel title={panelTitle} subtitle={`${users.length} users`}>
         {loading ? <Loading /> : (
           <table className="data-table">
             <thead>
-              <tr><th>#</th><th>Name</th><th>Username</th><th>Email</th><th>Mobile</th><th>Role</th><th>Branch</th><th>Status</th><th>Actions</th></tr>
+              <tr><th>#</th><th>Name</th><th>Username</th><th>Email</th><th>Mobile</th><th>Role</th><th>Branch</th><th>Created</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {users.map((u, i) => (
@@ -156,20 +260,31 @@ export default function UsersPage() {
                     </span>
                   </td>
                   <td>{branches.find(b => b.id === u.branch_id)?.branch_name || '—'}</td>
+                  <td style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}>{formatLocal(u.created_at)}</td>
                   <td><Badge status={u.is_active ? 'Active' : 'Inactive'} /></td>
                   <td>
                     <div className="user-actions">
+                      {canManage(u) && (
+                        <button className="btn btn-outline btn-sm" onClick={() => openEdit(u)}>
+                          Edit
+                        </button>
+                      )}
                       <button className="btn btn-outline btn-sm" onClick={() => { setResetUser(u); setResetPw(''); }}>
                         Reset Password
                       </button>
                       <button className={`btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-success'}`} onClick={() => toggleActive(u)}>
                         {u.is_active ? 'Deactivate' : 'Activate'}
                       </button>
+                      {canManage(u) && (
+                        <button className="btn btn-danger btn-sm" onClick={() => deleteUser(u)}>
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
-              {!users.length && <tr><td colSpan={9} className="text-center text-muted" style={{padding:32}}>No users found</td></tr>}
+              {!users.length && <tr><td colSpan={10} className="text-center text-muted" style={{padding:32}}>No users found</td></tr>}
             </tbody>
           </table>
         )}
@@ -186,13 +301,19 @@ export default function UsersPage() {
         </div>
         <div className="reg-form-row">
           <Field label="Password" required><Input type="password" value={form.password} onChange={e => set('password', e.target.value)} placeholder="Min 6 chars" /></Field>
-          <Field label="Role" required>
-            <Select value={form.role} onChange={e => set('role', e.target.value)}>
-              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-            </Select>
-          </Field>
+          {roleFilter === 'all' ? (
+            <Field label="Role" required>
+              <Select value={form.role} onChange={e => set('role', e.target.value)}>
+                {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+              </Select>
+            </Field>
+          ) : (
+            <Field label="Role">
+              <Input value={roleLabel[roleFilter] || roleFilter} disabled />
+            </Field>
+          )}
         </div>
-        {(form.role === 'branchmanager' || form.role === 'advisor') && (
+        {(form.role === 'branchmanager' || form.role === 'advisor' || form.role === 'member') && (
           <Field label="Branch">
             <Select value={form.branch_id} onChange={e => set('branch_id', e.target.value)}>
               <option value="">— Select Branch —</option>
@@ -205,6 +326,42 @@ export default function UsersPage() {
           <button className="btn btn-outline" onClick={() => setShowCreate(false)}>Cancel</button>
           <button className="btn btn-primary" onClick={create} disabled={saving}>{saving ? 'Creating...' : 'Create User'}</button>
         </div>
+      </Modal>
+
+      <Modal open={!!editUser} onClose={() => setEditUser(null)} title={`Edit ${roleLabel[editUser?.role] || 'User'}`} size="md">
+        {editUser && (
+          <>
+            <div className="reg-form-row">
+              <Field label="Full Name" required><Input value={editForm.full_name} onChange={e => setEdit('full_name', e.target.value)} /></Field>
+              <Field label="Username" required><Input value={editForm.username} onChange={e => setEdit('username', e.target.value)} /></Field>
+            </div>
+            <div className="reg-form-row">
+              <Field label="Email" required><Input type="email" value={editForm.email} onChange={e => setEdit('email', e.target.value)} /></Field>
+              <Field label="Mobile"><Input value={editForm.mobile} onChange={e => setEdit('mobile', e.target.value)} maxLength={10} /></Field>
+            </div>
+            <Field label="Branch">
+              <Select value={editForm.branch_id} onChange={e => setEdit('branch_id', e.target.value)}>
+                <option value="">— Select Branch —</option>
+                {branches.map(b => <option key={b.id} value={b.id}>{b.branch_name} ({b.branch_code})</option>)}
+              </Select>
+            </Field>
+            <Field label="Status">
+              <Select value={editForm.is_active ? 'active' : 'inactive'} onChange={e => setEdit('is_active', e.target.value === 'active')}>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </Select>
+            </Field>
+            <Alert type="info" className="mt-2">
+              Updates here also sync to the linked {editUser.role === 'member' ? 'investor' : 'adviser'} profile when a match is found.
+            </Alert>
+            <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
+              <button className="btn btn-outline" onClick={() => setEditUser(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveEdit} disabled={editSaving}>
+                {editSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </>
+        )}
       </Modal>
 
       <Modal open={!!resetUser} onClose={() => setResetUser(null)} title="Reset User Password" size="sm">

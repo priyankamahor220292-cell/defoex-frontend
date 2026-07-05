@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { formatISTNow } from '../../utils/dateTime';
+import { formatLocalNow } from '../../utils/dateTime';
 import './Topbar.css';
 
 export default function Topbar({ collapsed, onMenuToggle, mobileOpen }) {
@@ -22,7 +22,7 @@ export default function Topbar({ collapsed, onMenuToggle, mobileOpen }) {
     }).catch(() => {});
   }, []);
 
-  const formatDate = (d) => formatISTNow(d);
+  const formatDate = (d) => formatLocalNow(d);
 
   return (
     <header className={`topbar${collapsed ? ' shifted' : ''}`}>

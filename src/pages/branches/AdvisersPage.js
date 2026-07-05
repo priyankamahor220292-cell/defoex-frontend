@@ -7,6 +7,7 @@ import Loading from '../../components/Loading/Loading';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+import { formatLocalDate } from '../../utils/dateTime';
 
 const RANKS = [
   [1,'SR'],[2,'SO'],[3,'SD'],[4,'SI'],[5,'DO'],[6,'RO'],[7,'ZO'],
@@ -223,7 +224,7 @@ export default function AdvisersPage() {
                       <td><strong>{a.full_name}</strong></td>
                       <td>{a.father_name || '—'}</td>
                       <td>{a.mobile}</td>
-                      <td style={{fontSize:'0.78rem'}}>{a.created_at?.split('T')[0]}</td>
+                      <td style={{fontSize:'0.78rem'}}>{formatLocalDate(a.created_at)}</td>
                       <td style={{fontSize:'0.78rem'}}>{a.parent_adviser_name || '—'}</td>
                       <td style={{fontSize:'0.78rem',fontFamily:'monospace'}}>{a.parent_adviser_code || '—'}</td>
                       <td>
@@ -423,7 +424,7 @@ export default function AdvisersPage() {
                 ['Mobile',         detail.mobile],
                 ['Email',          detail.email || '—'],
                 ['Rank',           `${detail.rank_name} (Rank ${detail.rank_id})`],
-                ['Date Joined',    detail.created_at?.split('T')[0]],
+                ['Date Joined',    formatLocalDate(detail.created_at)],
                 ['Promoter ID',    detail.parent_adviser_code || '—'],
                 ['Promoter Name',  detail.parent_adviser_name || '—'],
                 ['Branch',         detail.branch_id ? `Branch #${detail.branch_id}` : '—'],

@@ -8,6 +8,7 @@ import api from '../../services/api';
 import { memberService } from '../../services/memberService';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+import { todayISOLocal } from '../../utils/dateTime';
 
 const STEPS = ['Adviser Verify', 'Personal Info', 'Address & KYC', 'Nominee & Bank', 'Confirm'];
 
@@ -232,7 +233,7 @@ function NewRegistration({ onDone }) {
     bank_name:'', account_number:'', ifsc_code:'', upi_id:'',
     occupation:'', annual_income:'', family_income:'',
     member_type:'Investor', member_fees:650, promoter_fees:0, payment_mode:'Cash',
-    date_of_joining: new Date().toISOString().split('T')[0],
+    date_of_joining: todayISOLocal(),
   });
 
   useEffect(() => {

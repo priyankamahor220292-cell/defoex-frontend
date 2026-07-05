@@ -9,12 +9,17 @@ import { useAuth } from '../../context/AuthContext';
 import PrintReceipt from './PrintReceipt';
 import BranchReceipt from './BranchReceipt';
 import toast from 'react-hot-toast';
+import { todayISOLocal, addMonthsISO } from '../../utils/dateTime';
 
 const MIS_TABLE = {
   '3Y': { months:36, label:'3 Years' },
   '5Y': { months:60, label:'5 Years' },
   '7Y': { months:84, label:'7 Years' },
 };
+const MIS_AMOUNTS = [
+  100, 200, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000,
+  5000, 6000, 7500, 9000, 10000, 12000, 15000, 20000, 25000, 30000,
+];
 const ROI = {
   '3Y': { num:7,  den:6,  pct:'16.67', label:'16.67%' },
   '5Y': { num:4,  den:3,  pct:'33.33', label:'33.33%' },
@@ -24,10 +29,18 @@ const calcMaturity = (monthly, tenure, months) => {
   const r = ROI[tenure];
   return Math.round((monthly * months * r.num) / r.den);
 };
+const calcMISRow = (monthly) => ({
+  monthly,
+  '3Y': { total: monthly * 36, maturity: calcMaturity(monthly, '3Y', 36) },
+  '5Y': { total: monthly * 60, maturity: calcMaturity(monthly, '5Y', 60) },
+  '7Y': { total: monthly * 84, maturity: calcMaturity(monthly, '7Y', 84) },
+});
+const MIS_RATE_CHART = MIS_AMOUNTS.map(calcMISRow);
 const fmt = n => '\u20b9' + (n||0).toLocaleString('en-IN');
 
 export default function InvestmentsPage() {
   const [view, setView] = useState('list');
+  const [chartPreset, setChartPreset] = useState(null);
   const { user } = useAuth();
   return (
     <div className="page-enter">
@@ -37,17 +50,77 @@ export default function InvestmentsPage() {
           <button className={`btn ${view==='list'?'btn-primary':'btn-outline'}`} onClick={()=>setView('list')}>All Plans</button>
           <button className={`btn ${view==='mis'?'btn-primary':'btn-outline'}`} onClick={()=>setView('mis')}>New MIS Plan</button>
           <button className={`btn ${view==='sis'?'btn-primary':'btn-outline'}`} onClick={()=>setView('sis')}>New SIS Plan</button>
+          <button className={`btn ${view==='chart'?'btn-primary':'btn-outline'}`} onClick={()=>setView('chart')}>MIS Rate Chart</button>
           <button className={`btn ${view==='contrib'?'btn-primary':'btn-outline'}`} onClick={()=>setView('contrib')}>MIS Contribution</button>
           <button className={`btn ${view==='approve'?'btn-primary':'btn-outline'}`} onClick={()=>setView('approve')}>Approve Investment</button>
         </div>
       </div>
 
       {view === 'list'    && <PlanList onView={setView} />}
-      {view === 'mis'     && <NewPlanForm type="MIS" onDone={()=>setView('approve')} />}
+      {view === 'mis'     && <NewPlanForm type="MIS" preset={chartPreset} onDone={()=>setView('approve')} />}
       {view === 'sis'     && <NewPlanForm type="SIS" onDone={()=>setView('approve')} />}
+      {view === 'chart'   && <MISRateChart onSelect={(amt, tenure) => { setChartPreset({ monthly: amt, tenure }); setView('mis'); }} />}
       {view === 'contrib' && <MISContribution />}
       {view === 'approve' && <ApproveInvestment />}
     </div>
+  );
+}
+
+/* ══ MIS RATE CHART ══ */
+function MISRateChart({ onSelect }) {
+  return (
+    <Panel title="MIS (Monthly Investment Scheme)" subtitle="Official rate chart — Defoex Infratech Pvt. Ltd.">
+      <div style={{overflowX:'auto'}}>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th rowSpan={2}>S.No.</th>
+              <th rowSpan={2}>Monthly Investment</th>
+              <th colSpan={2} style={{textAlign:'center',background:'rgba(var(--primary-rgb),0.08)'}}>3 Years</th>
+              <th colSpan={2} style={{textAlign:'center',background:'rgba(var(--primary-rgb),0.12)'}}>5 Years</th>
+              <th colSpan={2} style={{textAlign:'center',background:'rgba(var(--primary-rgb),0.16)'}}>7 Years</th>
+              <th rowSpan={2}>Action</th>
+            </tr>
+            <tr>
+              <th style={{background:'rgba(var(--primary-rgb),0.08)'}}>Total Investment</th>
+              <th style={{background:'rgba(var(--primary-rgb),0.08)'}}>ROI / Maturity</th>
+              <th style={{background:'rgba(var(--primary-rgb),0.12)'}}>Total Investment</th>
+              <th style={{background:'rgba(var(--primary-rgb),0.12)'}}>ROI / Maturity</th>
+              <th style={{background:'rgba(var(--primary-rgb),0.16)'}}>Total Investment</th>
+              <th style={{background:'rgba(var(--primary-rgb),0.16)'}}>ROI / Maturity</th>
+            </tr>
+          </thead>
+          <tbody>
+            {MIS_RATE_CHART.map((row, i) => (
+              <tr key={row.monthly}>
+                <td>{i + 1}</td>
+                <td><strong style={{color:'var(--primary)'}}>{fmt(row.monthly)}</strong></td>
+                <td>{fmt(row['3Y'].total)}</td>
+                <td><strong style={{color:'var(--success)'}}>{fmt(row['3Y'].maturity)}</strong></td>
+                <td>{fmt(row['5Y'].total)}</td>
+                <td><strong style={{color:'var(--success)'}}>{fmt(row['5Y'].maturity)}</strong></td>
+                <td>{fmt(row['7Y'].total)}</td>
+                <td><strong style={{color:'var(--success)'}}>{fmt(row['7Y'].maturity)}</strong></td>
+                <td>
+                  <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                    {['3Y','5Y','7Y'].map(t => (
+                      <button key={t} className="btn btn-outline btn-sm"
+                        onClick={() => onSelect(row.monthly, t)}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{marginTop:14,padding:'12px 16px',background:'var(--bg-input)',borderRadius:'var(--border-radius-sm)',fontSize:'0.82rem',color:'var(--text-muted)'}}>
+        <strong>ROI:</strong> 3 Year — 16.67% &nbsp;|&nbsp; 5 Year — 33.33% &nbsp;|&nbsp; 7 Year — 35.71%
+        &nbsp;|&nbsp; Click a tenure button to create a plan with that amount.
+      </div>
+    </Panel>
   );
 }
 
@@ -69,6 +142,17 @@ function PlanList() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const deletePlan = async (plan) => {
+    if (!window.confirm(`Delete investment plan ${plan.irn}? This cannot be undone.`)) return;
+    try {
+      await investmentService.delete(plan.id);
+      toast.success(`Investment plan ${plan.irn} deleted`);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to delete plan');
+    }
+  };
 
   const filtered = search
     ? (data.items||[]).filter(p =>
@@ -124,10 +208,15 @@ function PlanList() {
                     </span>
                   </td>
                   <td>
-                    {user?.role === 'superadmin'
-                      ? <button className="btn btn-primary btn-sm" onClick={()=>setReceiptIrn(p.irn)} title="Print Investment Bond">📜 Bond</button>
-                      : <button className="btn btn-outline btn-sm" onClick={()=>setBranchReceiptIrn(p.irn)} title="Print Receipt">🧾 Receipt</button>
-                    }
+                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                      {user?.role === 'superadmin'
+                        ? <button className="btn btn-primary btn-sm" onClick={()=>setReceiptIrn(p.irn)} title="Print Investment Bond">📜 Bond</button>
+                        : <button className="btn btn-outline btn-sm" onClick={()=>setBranchReceiptIrn(p.irn)} title="Print Receipt">🧾 Receipt</button>
+                      }
+                      {user?.role === 'superadmin' && (
+                        <button className="btn btn-danger btn-sm" onClick={() => deletePlan(p)}>Delete</button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -147,15 +236,20 @@ function PlanList() {
 }
 
 /* ══ NEW MIS / SIS PLAN FORM ══ */
-function NewPlanForm({ type, onDone }) {
+function NewPlanForm({ type, onDone, preset }) {
   const { user }      = useAuth();
   const [investorId,  setInvestorId]  = useState('');
   const [investorInfo,setInvestorInfo]= useState(null);
   const [tenure,      setTenure]      = useState('3Y');
-  const [monthly,     setMonthly]     = useState('');
+  const [monthly,     setMonthly]     = useState('1000');
   const [payMode,     setPayMode]     = useState('Cash');
-  const [invDate,     setInvDate]     = useState(new Date().toISOString().split('T')[0]);
+  const [invDate,     setInvDate]     = useState(todayISOLocal());
   const [submitting,  setSubmitting]  = useState(false);
+
+  useEffect(() => {
+    if (preset?.monthly) setMonthly(String(preset.monthly));
+    if (preset?.tenure) setTenure(preset.tenure);
+  }, [preset]);
 
   const months   = MIS_TABLE[tenure]?.months || 36;
   const total    = parseFloat(monthly||0) * months;
@@ -245,7 +339,16 @@ function NewPlanForm({ type, onDone }) {
 
         <div className="reg-form-row">
           <Field label={`Monthly Amount (\u20b9) *`}>
-            <Input type="number" value={monthly} onChange={e=>setMonthly(e.target.value)} placeholder="e.g. 1000" min="100" />
+            {type === 'MIS' ? (
+              <Select value={monthly} onChange={e=>setMonthly(e.target.value)}>
+                <option value="">Select monthly installment</option>
+                {MIS_AMOUNTS.map(amt => (
+                  <option key={amt} value={amt}>{fmt(amt)} / month</option>
+                ))}
+              </Select>
+            ) : (
+              <Input type="number" value={monthly} onChange={e=>setMonthly(e.target.value)} placeholder="e.g. 5000" min="1000" step="1000" />
+            )}
           </Field>
           <Field label="Payment Mode">
             <Select value={payMode} onChange={e=>setPayMode(e.target.value)}>
@@ -276,7 +379,7 @@ function NewPlanForm({ type, onDone }) {
           ['Total Investment',  fmt(total)],
           ['Maturity Amount',   <span style={{color:'#a5d6a7',fontWeight:800,fontSize:'1.1rem'}}>{fmt(maturity)}</span>],
           ['ROI',               <span style={{color:'var(--accent-light)',fontWeight:700}}>{roi.label}</span>],
-          ['First Due Date',    (() => { const d=new Date(invDate); d.setMonth(d.getMonth()+1); return d.toISOString().split('T')[0]; })()],
+          ['First Due Date',    addMonthsISO(invDate, 1)],
         ].map(([k,v]) => (
           <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid rgba(255,255,255,0.07)',fontSize:'0.82rem'}}>
             <span style={{color:'rgba(255,255,255,0.5)'}}>{k}</span>
@@ -413,9 +516,11 @@ function MISContribution() {
 
 /* ══ APPROVE INVESTMENT ══ */
 function ApproveInvestment() {
+  const { user } = useAuth();
   const [data,    setData]    = useState({ items:[] });
   const [loading, setLoading] = useState(true);
   const [acting,  setActing]  = useState(null);
+  const isAdmin = user?.role === 'superadmin';
 
   const load = useCallback(() => {
     setLoading(true);
@@ -429,12 +534,13 @@ function ApproveInvestment() {
   const act = async (plan, action) => {
     setActing(plan.id);
     try {
-      await investmentService.approve(plan.id, action);
-      if (action === 'approve') {
-        toast.success(`✅ Investment approved! Investment ID: ${plan.irn}`, { duration: 6000 });
-        setTimeout(() => toast(`Investment ID: ${plan.irn}`, {icon:'🎉', duration:8000}), 500);
+      if (action === 'reject') {
+        await investmentService.delete(plan.id);
+        toast.success(`Investment plan deleted: ${plan.irn}`);
       } else {
-        toast.success(`❌ Investment deleted: ${plan.irn}`);
+        await investmentService.approve(plan.id, action);
+        toast.success(`Investment approved! Investment ID: ${plan.irn}`, { duration: 6000 });
+        setTimeout(() => toast(`Investment ID: ${plan.irn}`, {icon:'🎉', duration:8000}), 500);
       }
       load();
     } catch(e) {
@@ -467,11 +573,13 @@ function ApproveInvestment() {
                       onClick={()=>act(p,'approve')}>
                       {acting===p.id?'...':'✓ Approve'}
                     </button>
-                    <button className="btn btn-danger btn-sm"
-                      disabled={acting===p.id}
-                      onClick={()=>act(p,'reject')}>
-                      Delete
-                    </button>
+                    {isAdmin && (
+                      <button className="btn btn-danger btn-sm"
+                        disabled={acting===p.id}
+                        onClick={()=>act(p,'reject')}>
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

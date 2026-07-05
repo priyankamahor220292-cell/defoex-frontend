@@ -4,6 +4,7 @@ import Loading from '../../components/Loading/Loading';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+import { formatLocalDate } from '../../utils/dateTime';
 
 const fmt  = n => '\u20b9' + (n||0).toLocaleString('en-IN');
 const fmtD = n => typeof n === 'number' ? `${n}%` : n;
@@ -141,7 +142,7 @@ export default function CommissionsPage() {
                       <td><strong style={{color:'var(--success)',fontSize:'1rem'}}>{fmt(c.commission_amount)}</strong></td>
                       <td><span style={{fontSize:'0.72rem',fontWeight:700,padding:'2px 8px',borderRadius:4,background:c.commission_type==='Direct'?'var(--success-bg)':'var(--warning-bg)',color:c.commission_type==='Direct'?'var(--success)':'var(--warning)'}}>{c.commission_type||'Direct'}</span></td>
                       <td><span style={{fontSize:'0.72rem',fontWeight:700,padding:'2px 9px',borderRadius:10,background:c.status==='Paid'?'var(--success-bg)':'var(--warning-bg)',color:c.status==='Paid'?'var(--success)':'var(--warning)'}}>{c.status}</span></td>
-                      <td style={{fontSize:'0.75rem'}}>{c.created_at?.split('T')[0]}</td>
+                      <td style={{fontSize:'0.75rem'}}>{formatLocalDate(c.created_at)}</td>
                     </tr>
                   ))}
                   {!(data.items||[]).length && (
